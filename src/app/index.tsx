@@ -1,3 +1,4 @@
+import { Link, router } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Pressable, Text, View } from "react-native";
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
@@ -40,6 +41,7 @@ export default function WelcomeScreen() {
         <View className="px-6 pb-10">
           <Pressable
             accessibilityRole="button"
+            onPress={() => router.push("/register")}
             className="items-center rounded-button bg-terracotta-500 py-4"
             style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
           >
@@ -47,6 +49,17 @@ export default function WelcomeScreen() {
               {t("welcome.cta")}
             </Text>
           </Pressable>
+
+          <View className="mt-4 flex-row justify-center">
+            <Text className="font-nunito text-base text-ink-muted dark:text-ink-invmuted">
+              {t("welcome.haveAccount")}{" "}
+            </Text>
+            <Link href="/login" asChild>
+              <Text className="font-nunito-bold text-base text-terracotta-600 dark:text-terracotta-300">
+                {t("welcome.signInLink")}
+              </Text>
+            </Link>
+          </View>
         </View>
       </Animated.View>
     </SafeAreaView>
