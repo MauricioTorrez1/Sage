@@ -6,7 +6,7 @@
 
 ## Stack
 
-- **React Native + Expo (SDK 57) + TypeScript (strict)**
+- **React Native + Expo (SDK 54) + TypeScript (strict)** — SDK 54 is the newest version supported by Expo Go on the iOS App Store
 - **Expo Router** — file-based navigation
 - **NativeWind v4** (Tailwind for RN) + **Reanimated** for animations
 - **Supabase** — Auth, Postgres (RLS), Storage, pgvector for RAG _(upcoming)_
