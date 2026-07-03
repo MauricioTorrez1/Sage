@@ -119,10 +119,23 @@
     "method": "Estimado con Mifflin-St Jeor según tu perfil y actividad. Es un punto de partida amable, no una regla rígida.",
     "incomplete": "Completa tu perfil para ver tu plan."
   },
+  "coach": {
+    "title": "Sage, tu coach",
+    "back": "Regresar",
+    "greeting": "¡Hola! Soy Sage 🌿 Pregúntame lo que quieras sobre tu plan, tus comidas, tu entrenamiento o tus hábitos. Sin culpas, a tu ritmo.",
+    "inputPlaceholder": "Escríbele a Sage...",
+    "send": "Enviar",
+    "thinking": "Sage está pensando...",
+    "errors": {
+      "busy": "Sage está saturado ahorita. Espera un momentito y vuelve a enviar tu mensaje.",
+      "generic": "No se pudo enviar tu mensaje. Revisa tu conexión y vuelve a intentar."
+    }
+  },
   "home": {
     "greeting": "¡Hola! 🌿",
     "greetingName": "¡Hola, {{name}}! 🌿",
-    "nextUp": "Siguiente parada: tu coach de IA 🌿",
+    "coachTitle": "Habla con Sage",
+    "coachSubtitle": "Dudas de comida, entrenamiento o tu plan — aquí ando.",
     "disclaimer": "Sage da orientación general de bienestar, no consejo médico. Consulta a un profesional de salud."
   }
 }

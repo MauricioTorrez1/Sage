@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { ActivityIndicator, View } from "react-native";
 
 import { useAuthStore } from "@/features/auth/store";
+import { resetCoach } from "@/features/coach/store";
 import {
   loadProfile,
   resetProfile,
@@ -22,7 +23,10 @@ export default function AppLayout() {
     loadProfile(userId).catch(() => {
       useProfileStore.setState({ loaded: true });
     });
-    return () => resetProfile();
+    return () => {
+      resetProfile();
+      resetCoach();
+    };
   }, [userId]);
 
   if (!loaded) {
@@ -42,6 +46,7 @@ export default function AppLayout() {
       </Stack.Protected>
       <Stack.Protected guard={onboarded}>
         <Stack.Screen name="home" />
+        <Stack.Screen name="coach" />
       </Stack.Protected>
     </Stack>
   );

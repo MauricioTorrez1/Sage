@@ -17,5 +17,10 @@
     ".expo/types/**/*.ts",
     "expo-env.d.ts",
     "nativewind-env.d.ts"
+  ],
+  // Edge Functions are Deno code with their own runtime/types.
+  "exclude": [
+    "node_modules",
+    "supabase/functions"
   ]
 }

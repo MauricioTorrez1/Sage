@@ -1,5 +1,6 @@
+import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "@/components/ui/Button";
@@ -84,11 +85,25 @@ export default function HomeScreen() {
           </View>
         )}
 
-        <View className="mt-4 rounded-card bg-sage-100 p-5 dark:bg-sage-900">
-          <Text className="font-nunito-semibold text-sm text-sage-800 dark:text-sage-200">
-            {t("home.nextUp")}
-          </Text>
-        </View>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push("/coach")}
+          className="mt-4 flex-row items-center rounded-card bg-sage-100 p-5 dark:bg-sage-900"
+          style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+        >
+          <View className="mr-3 h-11 w-11 items-center justify-center rounded-full bg-sage-200 dark:bg-sage-800">
+            <Text className="text-xl">🌿</Text>
+          </View>
+          <View className="flex-1">
+            <Text className="font-nunito-bold text-base text-sage-800 dark:text-sage-100">
+              {t("home.coachTitle")}
+            </Text>
+            <Text className="mt-0.5 font-nunito text-sm text-sage-700 dark:text-sage-300">
+              {t("home.coachSubtitle")}
+            </Text>
+          </View>
+          <Text className="text-xl text-sage-600 dark:text-sage-300">›</Text>
+        </Pressable>
 
         <View className="mt-auto pt-8">
           <Button
