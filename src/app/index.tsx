@@ -1,98 +1,57 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from "react-i18next";
+import { Pressable, Text, View } from "react-native";
+import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+export default function WelcomeScreen() {
+  const { t } = useTranslation();
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
+    <SafeAreaView className="flex-1 bg-cream dark:bg-night">
+      <View className="flex-1 items-center justify-center px-6">
+        <Animated.View
+          entering={FadeInDown.duration(600)}
+          className="h-28 w-28 items-center justify-center rounded-full bg-sage-100 dark:bg-sage-800"
+        >
+          <Text className="text-5xl">🌿</Text>
+        </Animated.View>
+
+        <Animated.Text
+          entering={FadeInDown.duration(600).delay(150)}
+          className="mt-6 font-nunito-extrabold text-5xl text-ink dark:text-ink-inverse"
+        >
+          {t("welcome.appName")}
+        </Animated.Text>
+
+        <Animated.Text
+          entering={FadeInDown.duration(600).delay(300)}
+          className="mt-3 text-center font-nunito-semibold text-lg text-ink-muted dark:text-ink-invmuted"
+        >
+          {t("welcome.tagline")}
+        </Animated.Text>
+
+        <Animated.Text
+          entering={FadeInDown.duration(600).delay(400)}
+          className="mt-2 text-center font-nunito text-base text-ink-soft dark:text-ink-invmuted"
+        >
+          {t("welcome.subtitle")}
+        </Animated.Text>
+      </View>
+
+      <Animated.View
+        entering={FadeInUp.duration(600).delay(550)}
+        className="px-6 pb-10"
+      >
+        <Pressable
+          accessibilityRole="button"
+          className="items-center rounded-button bg-terracotta-500 py-4"
+          style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
+        >
+          <Text className="font-nunito-bold text-lg text-white">
+            {t("welcome.cta")}
+          </Text>
+        </Pressable>
+      </Animated.View>
+    </SafeAreaView>
   );
 }
-
-export default function HomeScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
-
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
-
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
-
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
-  },
-  title: {
-    textAlign: 'center',
-  },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
-  },
-});

@@ -1,56 +1,58 @@
-# Welcome to your Expo app 👋
+# Sage 🌿
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+**AI-powered nutrition and personal training coach.** Warm, calm and motivating — built to inspire consistency, never guilt.
 
-## Get started
+> 🚧 **Work in progress** — currently at Phase 0 (project setup + brand foundation). See the roadmap below.
 
-1. Install dependencies
+## Stack
 
-   ```bash
-   npm install
-   ```
+- **React Native + Expo (SDK 57) + TypeScript (strict)**
+- **Expo Router** — file-based navigation
+- **NativeWind v4** (Tailwind for RN) + **Reanimated** for animations
+- **Supabase** — Auth, Postgres (RLS), Storage, pgvector for RAG _(upcoming)_
+- **Claude API** (Sonnet + Haiku) for diet/workout generation, coaching and photo analysis; **Voyage AI** for embeddings _(upcoming)_
+- **i18next** — Spanish (es-MX) first, English planned
 
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Getting started
 
 ```bash
-npm run reset-project
+npm install
+npx expo start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Scan the QR code with [Expo Go](https://expo.dev/go) on your phone (same Wi-Fi network).
 
-### Other setup steps
+## Project structure
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+```
+src/
+  app/          # Routes (Expo Router)
+  components/   # Reusable UI
+  features/     # auth, onboarding, diet, workout, coach, progress
+  lib/          # supabase client, LLM provider, external APIs, RAG, i18n
+  theme/        # Design tokens (single source of truth)
+  hooks/
+  types/
+supabase/       # SQL migrations, Edge Functions
+```
 
-## Learn more
+## Roadmap
 
-To learn more about developing your project with Expo, look at the following resources:
+- [x] **Phase 0** — Setup: Expo + NativeWind + design tokens + welcome screen
+- [ ] **Phase 1** — Auth (Supabase, email + Google OAuth, RLS)
+- [ ] **Phase 2** — Onboarding & profile (TDEE calculation)
+- [ ] **Phase 3** — AI diet generator + Open Food Facts + shopping list
+- [ ] **Phase 4** — AI workout generator (wger exercise database)
+- [ ] **Phase 5** — AI coach with RAG (pgvector + Voyage AI + Claude)
+- [ ] **Phase 6** — Photo analysis (Claude vision, privacy-first)
+- [ ] **Phase 7** — Streaks, reminders, progress & adherence rings
+- [ ] **Phase 8** — Weekly check-in with feedback and plan adjustment
+- [ ] **Phase 9** — Optional donations
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Health disclaimer
 
-## Join the community
+Sage provides general wellness guidance, **not medical advice**. Always consult a health professional.
 
-Join our community of developers creating universal apps.
+## License
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+[MIT](LICENSE)
