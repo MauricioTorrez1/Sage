@@ -110,11 +110,19 @@
       "goal": "Elige tu meta para continuar"
     }
   },
+  "plan": {
+    "title": "Tu plan diario",
+    "kcalPerDay": "kcal al día",
+    "protein": "Proteína",
+    "fat": "Grasas",
+    "carbs": "Carbohidratos",
+    "method": "Estimado con Mifflin-St Jeor según tu perfil y actividad. Es un punto de partida amable, no una regla rígida.",
+    "incomplete": "Completa tu perfil para ver tu plan."
+  },
   "home": {
     "greeting": "¡Hola! 🌿",
     "greetingName": "¡Hola, {{name}}! 🌿",
-    "loggedInAs": "Tu sesión: {{email}}",
-    "placeholder": "Aquí vivirá tu plan personalizado de nutrición y entrenamiento. Siguiente parada: tu perfil.",
+    "nextUp": "Siguiente parada: tu coach de IA 🌿",
     "disclaimer": "Sage da orientación general de bienestar, no consejo médico. Consulta a un profesional de salud."
   }
 }

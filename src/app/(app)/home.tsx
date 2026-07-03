@@ -1,43 +1,106 @@
 import { useTranslation } from "react-i18next";
-import { Text, View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "@/components/ui/Button";
-import { useAuthStore } from "@/features/auth/store";
+import { calculatePlan } from "@/features/plan/calculations";
 import { useProfileStore } from "@/features/profile/store";
+import type { Goal } from "@/features/profile/types";
 import { supabase } from "@/lib/supabase";
+
+const GOAL_LABEL_KEY: Record<Goal, string> = {
+  lose_weight: "onboarding.goalLose",
+  maintain: "onboarding.goalMaintain",
+  gain_muscle: "onboarding.goalGain",
+};
+
+function MacroTile({ label, grams }: { label: string; grams: number }) {
+  return (
+    <View className="flex-1 items-center rounded-button bg-sage-50 py-3 dark:bg-sage-900">
+      <Text className="font-nunito-extrabold text-xl text-ink dark:text-ink-inverse">
+        {grams} g
+      </Text>
+      <Text className="font-nunito text-xs text-ink-muted dark:text-ink-invmuted">
+        {label}
+      </Text>
+    </View>
+  );
+}
 
 export default function HomeScreen() {
   const { t } = useTranslation();
-  const session = useAuthStore((state) => state.session);
   const profile = useProfileStore((state) => state.profile);
+  const plan = profile ? calculatePlan(profile) : null;
 
   return (
     <SafeAreaView className="flex-1 bg-cream dark:bg-night">
-      <View className="flex-1 justify-center px-6">
-        <Text className="font-nunito-extrabold text-4xl text-ink dark:text-ink-inverse">
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName="flex-grow px-6 py-8"
+      >
+        <Text className="font-nunito-extrabold text-3xl text-ink dark:text-ink-inverse">
           {profile?.display_name
             ? t("home.greetingName", { name: profile.display_name })
             : t("home.greeting")}
         </Text>
-        <Text className="mt-2 font-nunito-semibold text-base text-ink-muted dark:text-ink-invmuted">
-          {t("home.loggedInAs", { email: session?.user.email })}
-        </Text>
-        <Text className="mt-6 font-nunito text-base text-ink-muted dark:text-ink-invmuted">
-          {t("home.placeholder")}
-        </Text>
-      </View>
+        {profile?.goal ? (
+          <View className="mt-2 self-start rounded-full bg-sage-100 px-3 py-1 dark:bg-sage-800">
+            <Text className="font-nunito-semibold text-sm text-sage-700 dark:text-sage-200">
+              {t(GOAL_LABEL_KEY[profile.goal])}
+            </Text>
+          </View>
+        ) : null}
 
-      <View className="px-6 pb-10">
-        <Button
-          title={t("auth.logout")}
-          onPress={() => supabase.auth.signOut()}
-          variant="ghost"
-        />
-        <Text className="mt-4 text-center font-nunito text-xs text-ink-soft dark:text-ink-invmuted">
-          {t("home.disclaimer")}
-        </Text>
-      </View>
+        {plan ? (
+          <View className="mt-6 rounded-card bg-white p-5 dark:bg-nightSurface">
+            <Text className="font-nunito-bold text-lg text-ink dark:text-ink-inverse">
+              {t("plan.title")}
+            </Text>
+            <View className="mt-3 flex-row items-baseline">
+              <Text className="font-nunito-extrabold text-5xl text-terracotta-500">
+                {plan.calories}
+              </Text>
+              <Text className="ml-2 font-nunito-semibold text-base text-ink-muted dark:text-ink-invmuted">
+                {t("plan.kcalPerDay")}
+              </Text>
+            </View>
+            <View className="mt-4 flex-row gap-2">
+              <MacroTile
+                label={t("plan.protein")}
+                grams={plan.proteinG}
+              />
+              <MacroTile label={t("plan.fat")} grams={plan.fatG} />
+              <MacroTile label={t("plan.carbs")} grams={plan.carbsG} />
+            </View>
+            <Text className="mt-4 font-nunito text-xs text-ink-soft dark:text-ink-invmuted">
+              {t("plan.method")}
+            </Text>
+          </View>
+        ) : (
+          <View className="mt-6 rounded-card bg-white p-5 dark:bg-nightSurface">
+            <Text className="font-nunito text-base text-ink-muted dark:text-ink-invmuted">
+              {t("plan.incomplete")}
+            </Text>
+          </View>
+        )}
+
+        <View className="mt-4 rounded-card bg-sage-100 p-5 dark:bg-sage-900">
+          <Text className="font-nunito-semibold text-sm text-sage-800 dark:text-sage-200">
+            {t("home.nextUp")}
+          </Text>
+        </View>
+
+        <View className="mt-auto pt-8">
+          <Button
+            title={t("auth.logout")}
+            onPress={() => supabase.auth.signOut()}
+            variant="ghost"
+          />
+          <Text className="mt-4 text-center font-nunito text-xs text-ink-soft dark:text-ink-invmuted">
+            {t("home.disclaimer")}
+          </Text>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
