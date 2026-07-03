@@ -7,7 +7,7 @@ import { AuthLayout } from "@/components/ui/AuthLayout";
 import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
 import { authErrorKey } from "@/features/auth/errors";
-import { fieldErrors } from "@/features/auth/form";
+import { fieldErrors } from "@/lib/forms";
 import { resetPasswordSchema } from "@/features/auth/schemas";
 import { supabase } from "@/lib/supabase";
 
