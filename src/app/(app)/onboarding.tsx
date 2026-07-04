@@ -10,12 +10,14 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "@/components/ui/Button";
+import { MultiOptionGroup } from "@/components/ui/MultiOptionGroup";
 import { OptionGroup } from "@/components/ui/OptionGroup";
 import { TextField } from "@/components/ui/TextField";
 import { useAuthStore } from "@/features/auth/store";
 import {
   activityOptions,
   bodyTypeOptions,
+  equipmentOptions,
   goalOptions,
   sexOptions,
   trainingPlaceOptions,
@@ -32,6 +34,7 @@ import type {
   BodyType,
   Goal,
   Sex,
+  TrainingEquipment,
   TrainingPlace,
 } from "@/features/profile/types";
 import { fieldErrors } from "@/lib/forms";
@@ -58,6 +61,7 @@ export default function OnboardingScreen() {
   const [trainingPlace, setTrainingPlace] = useState<TrainingPlace | null>(
     null,
   );
+  const [equipment, setEquipment] = useState<TrainingEquipment[]>([]);
   const [injuries, setInjuries] = useState("");
   const [weeklyBudget, setWeeklyBudget] = useState("");
   const [foodNotes, setFoodNotes] = useState("");
@@ -76,6 +80,7 @@ export default function OnboardingScreen() {
         trainingMinutesPerDay: trainingMinutes,
         trainingDaysPerWeek: trainingDays,
         trainingPlace,
+        trainingEquipment: equipment,
         injuries,
       },
     },
@@ -272,6 +277,14 @@ export default function OnboardingScreen() {
                 error={
                   errors.trainingPlace ? t(errors.trainingPlace) : undefined
                 }
+              />
+              <MultiOptionGroup
+                label={t("onboarding.equipment")}
+                options={equipmentOptions(t)}
+                values={equipment}
+                onChange={setEquipment}
+                exclusiveValues={["none", "full_gym"]}
+                hint={t("onboarding.equipmentHint")}
               />
               <TextField
                 label={t("onboarding.injuries")}

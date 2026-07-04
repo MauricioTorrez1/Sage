@@ -7,6 +7,7 @@ import type {
   BodyType,
   Goal,
   Sex,
+  TrainingEquipment,
   TrainingPlace,
 } from "./types";
 
@@ -81,6 +82,20 @@ export function trainingPlaceOptions(t: TFunction): Option<TrainingPlace>[] {
       label: t("onboarding.placeGym"),
       description: t("onboarding.placeGymDesc"),
     },
+  ];
+}
+
+export function equipmentOptions(t: TFunction): Option<TrainingEquipment>[] {
+  return [
+    { value: "none", label: t("onboarding.equipNone") },
+    { value: "dumbbells", label: t("onboarding.equipDumbbells") },
+    { value: "barbell", label: t("onboarding.equipBarbell") },
+    { value: "bench", label: t("onboarding.equipBench") },
+    { value: "resistance_bands", label: t("onboarding.equipBands") },
+    { value: "pull_up_bar", label: t("onboarding.equipPullUpBar") },
+    { value: "kettlebell", label: t("onboarding.equipKettlebell") },
+    { value: "cardio_machine", label: t("onboarding.equipCardio") },
+    { value: "full_gym", label: t("onboarding.equipFullGym") },
   ];
 }
 

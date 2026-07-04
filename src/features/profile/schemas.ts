@@ -66,6 +66,20 @@ export const trainingSchema = z.object({
   trainingPlace: z.enum(["home", "gym"], {
     error: "onboarding.errors.trainingPlace",
   }),
+  // Optional multi-select; empty array means "not specified".
+  trainingEquipment: z.array(
+    z.enum([
+      "none",
+      "dumbbells",
+      "barbell",
+      "bench",
+      "resistance_bands",
+      "pull_up_bar",
+      "kettlebell",
+      "cardio_machine",
+      "full_gym",
+    ]),
+  ),
   injuries: z
     .string()
     .trim()

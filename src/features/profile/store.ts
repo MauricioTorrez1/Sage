@@ -42,6 +42,8 @@ function toRow(input: OnboardingInput) {
     training_minutes_per_day: input.trainingMinutesPerDay,
     training_days_per_week: input.trainingDaysPerWeek,
     training_place: input.trainingPlace,
+    training_equipment:
+      input.trainingEquipment.length > 0 ? input.trainingEquipment : null,
     weekly_food_budget_mxn: input.weeklyBudgetMxn,
     injuries: input.injuries || null,
   };

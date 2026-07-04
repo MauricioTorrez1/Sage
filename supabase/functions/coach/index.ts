@@ -45,6 +45,7 @@ type Profile = {
   training_minutes_per_day: number | null;
   training_days_per_week: number | null;
   training_place: string | null;
+  training_equipment: string[] | null;
   weekly_food_budget_mxn: number | null;
   injuries: string | null;
 };
@@ -115,6 +116,17 @@ const PLACE_LABEL: Record<string, string> = {
   home: "en casa, con poco o nada de equipo",
   gym: "en el gimnasio, con máquinas y pesas",
 };
+const EQUIPMENT_LABEL: Record<string, string> = {
+  none: "solo su cuerpo (sin equipo)",
+  dumbbells: "mancuernas",
+  barbell: "barra y discos",
+  bench: "banco",
+  resistance_bands: "ligas de resistencia",
+  pull_up_bar: "barra de dominadas",
+  kettlebell: "pesa rusa",
+  cardio_machine: "caminadora o bici fija",
+  full_gym: "gimnasio completo (máquinas y pesos libres)",
+};
 
 function profileFacts(profile: Profile) {
   const plan = calculatePlan(profile);
@@ -134,6 +146,12 @@ function profileFacts(profile: Profile) {
     `- Tiempo para entrenar: ${profile.training_minutes_per_day} min/día, ${profile.training_days_per_week} días/semana`,
     profile.training_place &&
     `- Lugar de entrenamiento: ${PLACE_LABEL[profile.training_place]}`,
+    profile.training_equipment && profile.training_equipment.length > 0 &&
+    `- Equipo disponible: ${
+      profile.training_equipment
+        .map((item) => EQUIPMENT_LABEL[item] ?? item)
+        .join(", ")
+    }`,
     profile.weekly_food_budget_mxn &&
     `- Presupuesto semanal de comida: $${profile.weekly_food_budget_mxn} MXN`,
     profile.injuries &&
@@ -233,6 +251,7 @@ Reglas:
 - 3 o 4 comidas cuyas kcal sumen aproximadamente su objetivo diario (±5%), con buena proteína según su meta.
 - Comida real, accesible y común en México; nada rebuscado ni caro.
 - 2 a 4 ejercicios/actividades realistas para su nivel; el entrenamiento completo debe caber en sus minutos disponibles y hacerse en su lugar de entrenamiento (si entrena en casa, sin máquinas de gimnasio).
+- Usa SOLO el equipo disponible del perfil (los ejercicios de peso corporal siempre valen); si no indicó equipo, asume lo típico de su lugar de entrenamiento.
 - Respeta SIEMPRE sus lesiones o limitaciones físicas: jamás incluyas ejercicios contraindicados; usa alternativas seguras que no carguen la zona afectada.
 - "title" corto (máx 6 palabras); "detail" con porciones o series/repeticiones concretas, en una línea.
 - Nunca planes extremos: nada de ayunos agresivos ni ejercicio excesivo.`;
@@ -278,6 +297,57 @@ Reglas:
 - Las fotos caseras varían en luz, ángulo y ropa: no saques conclusiones tajantes ni compares milímetros.
 - Nada de diagnósticos médicos ni porcentajes de grasa exactos. Si algo requiere atención médica, recomiéndalo con calidez.`;
 }
+
+function shoppingListSystemPrompt(profile: Profile, recentMeals: string[]) {
+  let prompt =
+    `Eres Sage, coach de nutrición. Genera la lista del súper para UNA semana de esta persona, en español mexicano.
+
+Perfil:
+${profileFacts(profile)}
+
+Reglas:
+- Ingredientes reales de supermercado mexicano (Walmart/Soriana/mercado); nada rebuscado.
+- Cantidades concretas por semana en "quantity" (p. ej. "1 kg", "12 pzas", "2 L").
+- "est_mxn" es el precio estimado del artículo en pesos mexicanos (entero).
+- Respeta SIEMPRE las alergias y restricciones de sus notas de comida.
+- ${
+      profile.weekly_food_budget_mxn
+        ? `La suma de est_mxn debe caber en su presupuesto semanal de $${profile.weekly_food_budget_mxn} MXN (idealmente ~90% para dejar margen).`
+        : "Sin presupuesto indicado: mantén la lista económica y realista."
+    }
+- 12 a 20 artículos: proteínas, verduras, frutas, granos y básicos que cubran la semana según su plan calculado.
+- "title" corto (máx 4 palabras).`;
+
+  if (recentMeals.length > 0) {
+    prompt += `
+
+Platillos recientes de su plan (la lista debe alcanzar para prepararlos o variantes cercanas):
+${recentMeals.map((title) => `- ${title}`).join("\n")}`;
+  }
+
+  return prompt;
+}
+
+const SHOPPING_LIST_SCHEMA = {
+  type: "object",
+  properties: {
+    items: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          quantity: { type: "string" },
+          est_mxn: { type: "integer" },
+        },
+        required: ["title", "quantity", "est_mxn"],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["items"],
+  additionalProperties: false,
+} as const;
 
 const DAILY_PLAN_SCHEMA = {
   type: "object",
@@ -503,6 +573,110 @@ async function handleDailyPlan(
   return json({ plan });
 }
 
+type ShoppingItem = {
+  id: string;
+  title: string;
+  quantity: string;
+  est_mxn: number;
+  done: boolean;
+};
+
+async function handleShoppingList(
+  supabase: SupabaseClient,
+  anthropic: Anthropic,
+  userId: string,
+  profile: Profile,
+  weekStart: unknown,
+) {
+  if (typeof weekStart !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+    return json({ error: "bad_request" }, 400);
+  }
+
+  // Recent meals keep the list aligned with what the plan actually serves.
+  const { data: recentPlans } = await supabase
+    .from("daily_plans")
+    .select("items")
+    .order("plan_date", { ascending: false })
+    .limit(7);
+  const recentMeals = [
+    ...new Set(
+      (recentPlans ?? []).flatMap((row) =>
+        ((row.items ?? []) as DailyPlanItem[])
+          .filter((item) => item.kind === "meal")
+          .map((item) => item.title),
+      ),
+    ),
+  ];
+
+  const response = await anthropic.messages.create({
+    model: MODEL,
+    max_tokens: PLAN_MAX_TOKENS,
+    thinking: THINKING,
+    system: shoppingListSystemPrompt(profile, recentMeals),
+    messages: [
+      {
+        role: "user",
+        content: `Genera mi lista del súper para la semana del ${weekStart}.`,
+      },
+    ],
+    output_config: {
+      format: { type: "json_schema", schema: SHOPPING_LIST_SCHEMA },
+    },
+  });
+
+  if (response.stop_reason === "refusal") {
+    return json({ error: "refused" }, 502);
+  }
+  if (response.stop_reason === "max_tokens") {
+    console.error("shopping list truncated at", PLAN_MAX_TOKENS, "tokens");
+    return json({ error: "internal" }, 500);
+  }
+
+  const generated = JSON.parse(extractText(response)) as {
+    items: { title: string; quantity: string; est_mxn: number }[];
+  };
+
+  // Regenerating keeps the checkmarks of items that survived by title.
+  const { data: existing } = await supabase
+    .from("shopping_lists")
+    .select("items")
+    .eq("week_start", weekStart)
+    .maybeSingle();
+  const doneTitles = new Set(
+    ((existing?.items ?? []) as ShoppingItem[])
+      .filter((item) => item.done)
+      .map((item) => item.title.toLowerCase()),
+  );
+
+  const items: ShoppingItem[] = generated.items.map((item) => ({
+    id: crypto.randomUUID(),
+    title: item.title,
+    quantity: item.quantity,
+    est_mxn: item.est_mxn,
+    done: doneTitles.has(item.title.toLowerCase()),
+  }));
+
+  const { data: list, error: upsertError } = await supabase
+    .from("shopping_lists")
+    .upsert(
+      {
+        user_id: userId,
+        week_start: weekStart,
+        items,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id,week_start" },
+    )
+    .select()
+    .single();
+  if (upsertError || !list) {
+    console.error("shopping list upsert error:", upsertError);
+    return json({ error: "internal" }, 500);
+  }
+
+  return json({ list });
+}
+
 async function handlePhotoAnalysis(
   supabase: SupabaseClient,
   anthropic: Anthropic,
@@ -653,6 +827,15 @@ Deno.serve(async (req) => {
         userData.user.id,
         profile as Profile,
         body.date,
+      );
+    }
+    if (type === "shopping_list") {
+      return await handleShoppingList(
+        supabase,
+        anthropic,
+        userData.user.id,
+        profile as Profile,
+        body.week_start,
       );
     }
     if (type === "photo_analysis") {

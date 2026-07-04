@@ -6,12 +6,14 @@ import { Pressable, Text } from "react-native";
 
 import { AuthLayout } from "@/components/ui/AuthLayout";
 import { Button } from "@/components/ui/Button";
+import { MultiOptionGroup } from "@/components/ui/MultiOptionGroup";
 import { OptionGroup } from "@/components/ui/OptionGroup";
 import { TextField } from "@/components/ui/TextField";
 import { useAuthStore } from "@/features/auth/store";
 import {
   activityOptions,
   bodyTypeOptions,
+  equipmentOptions,
   goalOptions,
   sexOptions,
   trainingPlaceOptions,
@@ -28,6 +30,7 @@ import type {
   BodyType,
   Goal,
   Sex,
+  TrainingEquipment,
   TrainingPlace,
 } from "@/features/profile/types";
 import type { ThemePreference } from "@/features/theme/store";
@@ -73,6 +76,9 @@ export default function ProfileScreen() {
   const [trainingPlace, setTrainingPlace] = useState<TrainingPlace | null>(
     profile?.training_place ?? null,
   );
+  const [equipment, setEquipment] = useState<TrainingEquipment[]>(
+    profile?.training_equipment ?? [],
+  );
   const [injuries, setInjuries] = useState(profile?.injuries ?? "");
   const [weeklyBudget, setWeeklyBudget] = useState(
     profile?.weekly_food_budget_mxn
@@ -94,6 +100,7 @@ export default function ProfileScreen() {
       trainingMinutesPerDay: trainingMinutes,
       trainingDaysPerWeek: trainingDays,
       trainingPlace,
+      trainingEquipment: equipment,
       injuries,
     });
     const goalParsed = goalSchema.safeParse({
@@ -225,6 +232,14 @@ export default function ProfileScreen() {
         value={trainingPlace}
         onChange={setTrainingPlace}
         error={errors.trainingPlace ? t(errors.trainingPlace) : undefined}
+      />
+      <MultiOptionGroup
+        label={t("onboarding.equipment")}
+        options={equipmentOptions(t)}
+        values={equipment}
+        onChange={setEquipment}
+        exclusiveValues={["none", "full_gym"]}
+        hint={t("onboarding.equipmentHint")}
       />
       <TextField
         label={t("onboarding.injuries")}

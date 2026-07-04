@@ -51,7 +51,7 @@ Updated at the end of every phase.
 | Dark/light mode (manual toggle) + animated brand shapes | ✅ Done |
 | Optional donations (env-gated link, never blocks anything) | ✅ Done |
 | CI: lint + typecheck on every push | ✅ Done |
-| Diet data: Open Food Facts + barcode + shopping list | ⏳ Planned |
+| Diet data: Open Food Facts + barcode + shopping list | ✅ Done |
 | Workout data: wger exercise images/instructions | ⏳ Planned |
 | Coach RAG: pgvector + Voyage AI embeddings + source citations | ⏳ Planned |
 | Food photo → structured JSON log (ephemeral, consent-first) | ⏳ Planned |
@@ -67,7 +67,7 @@ Planned order for the remaining work, sequenced by dependencies and demo value:
 | Phase | Scope |
 |---|---|
 | 11 | ✅ Full progress screen: meal/exercise adherence rings (Apple Fitness style), weight trend, streaks, celebrations — adherence is computed straight from `daily_plans.items`, so no extra log table was needed. Also: the daily-plan prompt now sees the last week's meal titles to keep dishes varied |
-| 12 | Diet data: Open Food Facts + barcode scanning + shopping list fitted to the weekly budget. Plus: training-equipment picker (what gear the user has at home/gym) so daily plans only prescribe exercises the equipment allows |
+| 12 | ✅ Diet data: Open Food Facts + barcode scanning (expo-camera) + AI weekly shopping list fitted to the budget (`shopping_lists` table). Plus the training-equipment picker: multi-select chips on onboarding/profile (`profiles.training_equipment`), and daily plans only prescribe exercises the equipment allows |
 | 13 | Workout data: wger exercise images/instructions, excluding moves contraindicated by injuries |
 | 14 | Coach RAG: pgvector + Voyage AI `voyage-3.5` embeddings (1024 dims, `match_knowledge_chunks`) + source citations |
 | 15 | Food photo → structured JSON log with `claude-haiku-4-5` (ephemeral, consent-first, zod-validated) |

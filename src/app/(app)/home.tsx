@@ -119,6 +119,26 @@ export default function HomeScreen() {
 
         <Pressable
           accessibilityRole="button"
+          onPress={() => router.push("/food")}
+          className="mt-4 flex-row items-center rounded-card bg-white p-5 dark:bg-nightSurface"
+          style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+        >
+          <View className="mr-3 h-11 w-11 items-center justify-center rounded-full bg-terracotta-100 dark:bg-terracotta-800">
+            <Text className="text-xl">🛒</Text>
+          </View>
+          <View className="flex-1">
+            <Text className="font-nunito-bold text-base text-ink dark:text-ink-inverse">
+              {t("home.foodTitle")}
+            </Text>
+            <Text className="mt-0.5 font-nunito text-sm text-ink-muted dark:text-ink-invmuted">
+              {t("home.foodSubtitle")}
+            </Text>
+          </View>
+          <Text className="text-xl text-sage-600 dark:text-sage-300">›</Text>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
           onPress={() => router.push("/coach")}
           className="mt-4 flex-row items-center rounded-card bg-sage-100 p-5 dark:bg-sage-900"
           style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
