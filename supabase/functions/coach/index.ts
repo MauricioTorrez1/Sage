@@ -215,7 +215,11 @@ Reglas:
 - No uses encabezados de markdown; texto plano con emojis ocasionales.`;
 }
 
-function dailyPlanSystemPrompt(profile: Profile, kept: DailyPlanItem[]) {
+function dailyPlanSystemPrompt(
+  profile: Profile,
+  kept: DailyPlanItem[],
+  recentMeals: string[],
+) {
   let prompt =
     `Eres Sage, coach de nutrición y entrenamiento. Genera el plan de HOY para esta persona, en español mexicano.
 
@@ -232,6 +236,13 @@ Reglas:
 - Respeta SIEMPRE sus lesiones o limitaciones físicas: jamás incluyas ejercicios contraindicados; usa alternativas seguras que no carguen la zona afectada.
 - "title" corto (máx 6 palabras); "detail" con porciones o series/repeticiones concretas, en una línea.
 - Nunca planes extremos: nada de ayunos agresivos ni ejercicio excesivo.`;
+
+  if (recentMeals.length > 0) {
+    prompt += `
+
+Platillos de sus días recientes (NO los repitas hoy; varía proteínas, guarniciones y estilo de cocina respecto a esta lista):
+${recentMeals.map((title) => `- ${title}`).join("\n")}`;
+  }
 
   if (kept.length > 0) {
     const keptKcal = kept.reduce((sum, item) => sum + (item.kcal ?? 0), 0);
@@ -411,11 +422,29 @@ async function handleDailyPlan(
     (item) => item.done,
   );
 
+  // Meal titles from the last week feed the prompt so days don't repeat
+  // the same dishes (RLS scopes the read to the caller's own rows).
+  const { data: recentPlans } = await supabase
+    .from("daily_plans")
+    .select("items")
+    .lt("plan_date", date)
+    .order("plan_date", { ascending: false })
+    .limit(7);
+  const recentMeals = [
+    ...new Set(
+      (recentPlans ?? []).flatMap((row) =>
+        ((row.items ?? []) as DailyPlanItem[])
+          .filter((item) => item.kind === "meal")
+          .map((item) => item.title),
+      ),
+    ),
+  ];
+
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: PLAN_MAX_TOKENS,
     thinking: THINKING,
-    system: dailyPlanSystemPrompt(profile, kept),
+    system: dailyPlanSystemPrompt(profile, kept, recentMeals),
     messages: [{ role: "user", content: `Genera mi plan del día ${date}.` }],
     output_config: {
       format: { type: "json_schema", schema: DAILY_PLAN_SCHEMA },

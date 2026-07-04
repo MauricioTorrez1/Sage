@@ -17,6 +17,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Button } from "@/components/ui/Button";
 import { useAuthStore } from "@/features/auth/store";
 import { useProfileStore } from "@/features/profile/store";
+import { AdherenceRings } from "@/features/progress/AdherenceRings";
+import {
+  currentStreak,
+  loadStats,
+  todayAdherence,
+  useStatsStore,
+} from "@/features/progress/stats";
 import type { ProgressPhoto } from "@/features/progress/store";
 import {
   addPhoto,
@@ -25,6 +32,7 @@ import {
   loadPhotos,
   useProgressStore,
 } from "@/features/progress/store";
+import { WeightTrend } from "@/features/progress/WeightTrend";
 import { tokens } from "@/theme/tokens";
 
 const PICKER_OPTIONS: ImagePicker.ImagePickerOptions = {
@@ -126,10 +134,27 @@ export default function ProgressScreen() {
   const loaded = useProgressStore((state) => state.loaded);
   const uploading = useProgressStore((state) => state.uploading);
   const errorKey = useProgressStore((state) => state.errorKey);
+  const days = useStatsStore((state) => state.days);
+  const weights = useStatsStore((state) => state.weights);
+  const statsLoaded = useStatsStore((state) => state.loaded);
 
   useEffect(() => {
     loadPhotos();
+    loadStats();
   }, []);
+
+  const today = todayAdherence(days);
+  const streak = currentStreak(days);
+  const todayTotal = today ? today.mealsTotal + today.exercisesTotal : 0;
+  const todayDone = today ? today.mealsDone + today.exercisesDone : 0;
+  const motivationKey =
+    todayTotal > 0 && todayDone === todayTotal
+      ? "progress.motivationFull"
+      : todayDone >= todayTotal / 2 && todayDone > 0
+        ? "progress.motivationHigh"
+        : todayDone > 0
+          ? "progress.motivationLow"
+          : "progress.motivationStart";
 
   async function pick(fromCamera: boolean) {
     if (!session || uploading) return;
@@ -177,6 +202,45 @@ export default function ProgressScreen() {
           renderItem={({ item }) => <PhotoCard photo={item} />}
           ListHeaderComponent={
             <View className="mb-4">
+              {statsLoaded ? (
+                <>
+                  <View className="mb-4 rounded-card bg-white p-5 dark:bg-nightSurface">
+                    <Text className="font-nunito-bold text-lg text-ink dark:text-ink-inverse">
+                      {t("progress.todayTitle")}
+                    </Text>
+                    {today ? (
+                      <>
+                        <View className="mt-4">
+                          <AdherenceRings
+                            mealsDone={today.mealsDone}
+                            mealsTotal={today.mealsTotal}
+                            exercisesDone={today.exercisesDone}
+                            exercisesTotal={today.exercisesTotal}
+                          />
+                        </View>
+                        <Text className="mt-4 font-nunito text-sm text-ink-muted dark:text-ink-invmuted">
+                          {t(motivationKey)}
+                        </Text>
+                      </>
+                    ) : (
+                      <Text className="mt-2 font-nunito text-sm text-ink-muted dark:text-ink-invmuted">
+                        {t("progress.noPlanToday")}
+                      </Text>
+                    )}
+                    {streak > 0 ? (
+                      <Text className="mt-2 font-nunito-semibold text-sm text-terracotta-600 dark:text-terracotta-300">
+                        {t("progress.streak", { count: streak })}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <View className="mb-4 rounded-card bg-white p-5 dark:bg-nightSurface">
+                    <Text className="mb-3 font-nunito-bold text-lg text-ink dark:text-ink-inverse">
+                      {t("progress.weightTitle")}
+                    </Text>
+                    <WeightTrend weights={weights} />
+                  </View>
+                </>
+              ) : null}
               <View className="flex-row gap-3">
                 <View className="flex-1">
                   <Button

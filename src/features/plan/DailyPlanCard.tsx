@@ -1,3 +1,4 @@
+import { useColorScheme } from "nativewind";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
@@ -7,6 +8,7 @@ import Animated, {
   useSharedValue,
   withSequence,
   withTiming,
+  ZoomIn,
 } from "react-native-reanimated";
 
 import { Button } from "@/components/ui/Button";
@@ -118,6 +120,8 @@ function ItemRow({ item }: { item: DailyPlanItem }) {
 
 export function DailyPlanCard() {
   const { t } = useTranslation();
+  const { colorScheme } = useColorScheme();
+  const dark = colorScheme === "dark";
   const plan = useDailyPlanStore((state) => state.plan);
   const loaded = useDailyPlanStore((state) => state.loaded);
   const generating = useDailyPlanStore((state) => state.generating);
@@ -194,9 +198,24 @@ export function DailyPlanCard() {
           {generating ? (
             <GeneratingIndicator />
           ) : doneCount === total ? (
-            <Text className="mt-3 text-center font-nunito-semibold text-sm text-sage-700 dark:text-sage-300">
-              {t("dailyPlan.allDone")}
-            </Text>
+            // Celebration: the banner springs in when the last item is checked.
+            // Reanimated views drop className on web; style the banner inline.
+            <Animated.View
+              entering={ZoomIn.springify().damping(12)}
+              style={{
+                marginTop: 12,
+                borderRadius: 16,
+                paddingVertical: 12,
+                paddingHorizontal: 16,
+                backgroundColor: dark
+                  ? tokens.colors.sage[900]
+                  : tokens.colors.sage[100],
+              }}
+            >
+              <Text className="text-center font-nunito-semibold text-sm text-sage-700 dark:text-sage-300">
+                {t("dailyPlan.allDone")}
+              </Text>
+            </Animated.View>
           ) : (
             <>
               <Button
