@@ -5,6 +5,7 @@ import Animated, {
   Easing,
   useAnimatedStyle,
   useSharedValue,
+  withSequence,
   withTiming,
 } from "react-native-reanimated";
 
@@ -26,8 +27,10 @@ const GENERATING_MESSAGES = [
 
 /**
  * Shown in place of the generate button while Sage builds the day. The API
- * gives no real progress signal, so the bar eases toward 90% and the card
- * swaps in the finished plan when the response lands.
+ * gives no real progress signal, so the bar runs two legs — a lively climb
+ * to 60%, then a slow crawl toward 95% that covers a 30–90 s generation
+ * (plus one silent retry) — and the card swaps in the finished plan when
+ * the response lands.
  */
 function GeneratingIndicator() {
   const { t } = useTranslation();
@@ -35,10 +38,10 @@ function GeneratingIndicator() {
   const [messageIndex, setMessageIndex] = useState(0);
 
   useEffect(() => {
-    progress.value = withTiming(0.9, {
-      duration: 18000,
-      easing: Easing.out(Easing.cubic),
-    });
+    progress.value = withSequence(
+      withTiming(0.6, { duration: 8000, easing: Easing.out(Easing.cubic) }),
+      withTiming(0.95, { duration: 80000, easing: Easing.out(Easing.quad) }),
+    );
     const interval = setInterval(
       () =>
         setMessageIndex((index) => (index + 1) % GENERATING_MESSAGES.length),

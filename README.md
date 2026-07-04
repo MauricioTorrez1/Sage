@@ -60,6 +60,21 @@ Updated at the end of every phase.
 | Weekly check-in with feedback + safe plan adjustment | ⏳ Planned |
 | Chat streaming, portfolio README, EAS build guide | ⏳ Planned |
 
+### Next phases (11–18)
+
+Planned order for the remaining work, sequenced by dependencies and demo value:
+
+| Phase | Scope |
+|---|---|
+| 11 | Full progress screen: meal/exercise adherence rings (Apple Fitness style) from `daily_plans.items.done`, `progress_logs` table (daily %), weight trend, streaks, celebrations |
+| 12 | Diet data: Open Food Facts + barcode scanning + shopping list fitted to the weekly budget |
+| 13 | Workout data: wger exercise images/instructions, excluding moves contraindicated by injuries |
+| 14 | Coach RAG: pgvector + Voyage AI `voyage-3.5` embeddings (1024 dims, `match_knowledge_chunks`) + source citations |
+| 15 | Food photo → structured JSON log with `claude-haiku-4-5` (ephemeral, consent-first, zod-validated) |
+| 16 | Local reminders with Expo Notifications (Expo Go dropped remote push) |
+| 17 | Weekly check-in: `weekly_reviews` table, opt-in photo comparison, RAG + adherence feedback, safe plan adjustment, body-image guardrails — last because it consumes 11 and 14 |
+| 18 | Launch polish: Google OAuth, coach chat streaming, portfolio README (screenshots + GIF + architecture diagram + lessons learned), EAS Build guide |
+
 ## Health disclaimer
 
 Sage provides general wellness guidance, **not medical advice**. Always consult a health professional.

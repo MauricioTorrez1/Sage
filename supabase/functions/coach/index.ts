@@ -18,7 +18,7 @@ const THINKING = { type: "disabled" } as const;
 // Sonnet 5's tokenizer yields ~30% more tokens for the same text than the
 // old Opus one; budgets sized up accordingly.
 const CHAT_MAX_TOKENS = 1400;
-const PLAN_MAX_TOKENS = 3000;
+const PLAN_MAX_TOKENS = 6000;
 // Hard limits so a runaway client can't rack up spend.
 const MAX_MESSAGES = 30;
 const MAX_MESSAGE_CHARS = 2000;
@@ -424,6 +424,12 @@ async function handleDailyPlan(
 
   if (response.stop_reason === "refusal") {
     return json({ error: "refused" }, 502);
+  }
+  if (response.stop_reason === "max_tokens") {
+    // Truncated JSON would make JSON.parse throw into the generic catch;
+    // fail here so the logs say what actually happened.
+    console.error("daily plan truncated at", PLAN_MAX_TOKENS, "tokens");
+    return json({ error: "internal" }, 500);
   }
 
   const generated = JSON.parse(extractText(response)) as {

@@ -193,6 +193,9 @@ export default function ProgressScreen() {
                   />
                 </View>
               </View>
+              <Text className="mt-3 font-nunito text-xs text-ink-muted dark:text-ink-invmuted">
+                {t("progress.privacyNote")}
+              </Text>
               {errorKey ? (
                 <Text className="mt-3 font-nunito text-sm text-terracotta-600 dark:text-terracotta-300">
                   {t(errorKey)}

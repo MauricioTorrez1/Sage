@@ -56,15 +56,27 @@ export async function generateTodayPlan() {
   if (useDailyPlanStore.getState().generating) return;
   useDailyPlanStore.setState({ generating: true, errorKey: null });
 
-  const { data, error } = await supabase.functions.invoke("coach", {
-    body: { type: "daily_plan", date: todayKey() },
-  });
+  const invoke = () =>
+    supabase.functions.invoke("coach", {
+      body: { type: "daily_plan", date: todayKey() },
+    });
+
+  const isBusy = (e: unknown) =>
+    (e as { context?: Response })?.context?.status === 429;
+
+  let { data, error } = await invoke();
+
+  // Server hiccups (timeouts, truncated output) resolve on a fresh attempt
+  // far more often than not; retry once before bothering the user. A 429
+  // means the function is rate limited — retrying immediately won't help.
+  if ((error || !data?.plan) && !isBusy(error)) {
+    ({ data, error } = await invoke());
+  }
 
   if (error || !data?.plan) {
-    const busy = (error as { context?: Response })?.context?.status === 429;
     useDailyPlanStore.setState({
       generating: false,
-      errorKey: busy ? "coach.errors.busy" : "dailyPlan.errors.generate",
+      errorKey: isBusy(error) ? "coach.errors.busy" : "dailyPlan.errors.generate",
     });
     return;
   }
