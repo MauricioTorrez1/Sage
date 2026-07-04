@@ -8,8 +8,10 @@ export type ChatMessage = {
 };
 
 type CoachState = {
-  /** Newest last. In-memory only for now; persistence lands in a later phase. */
+  /** Newest last. Persisted server-side by the coach Edge Function. */
   messages: ChatMessage[];
+  /** True once history has been fetched for the current user. */
+  historyLoaded: boolean;
   sending: boolean;
   /** i18n key of the last error, cleared on the next send. */
   errorKey: string | null;
@@ -17,13 +19,37 @@ type CoachState = {
 
 export const useCoachStore = create<CoachState>(() => ({
   messages: [],
+  historyLoaded: false,
   sending: false,
   errorKey: null,
 }));
 
 /** Only the recent tail goes to the API; older turns stay local. */
 const HISTORY_SENT = 20;
+/** How much persisted history to pull when opening the chat. */
+const HISTORY_LOADED = 50;
 export const MAX_MESSAGE_CHARS = 2000;
+
+/** Fetches the persisted conversation tail. Idempotent per session. */
+export async function loadHistory() {
+  if (useCoachStore.getState().historyLoaded) return;
+
+  const { data, error } = await supabase
+    .from("chat_messages")
+    .select("role, content")
+    .order("created_at", { ascending: false })
+    .limit(HISTORY_LOADED);
+
+  if (error) {
+    // Start empty rather than blocking the chat; sending still works.
+    useCoachStore.setState({ historyLoaded: true });
+    return;
+  }
+  useCoachStore.setState({
+    messages: (data as ChatMessage[]).reverse(),
+    historyLoaded: true,
+  });
+}
 
 export async function sendMessage(text: string) {
   const content = text.trim().slice(0, MAX_MESSAGE_CHARS);
@@ -36,7 +62,7 @@ export async function sendMessage(text: string) {
   useCoachStore.setState({ messages: history, sending: true, errorKey: null });
 
   const { data, error } = await supabase.functions.invoke("coach", {
-    body: { messages: history.slice(-HISTORY_SENT) },
+    body: { type: "chat", messages: history.slice(-HISTORY_SENT) },
   });
 
   if (error || typeof data?.reply !== "string") {
@@ -55,7 +81,12 @@ export async function sendMessage(text: string) {
   });
 }
 
-/** Clears the conversation; call on sign-out. */
+/** Clears the conversation cache; call on sign-out. */
 export function resetCoach() {
-  useCoachStore.setState({ messages: [], sending: false, errorKey: null });
+  useCoachStore.setState({
+    messages: [],
+    historyLoaded: false,
+    sending: false,
+    errorKey: null,
+  });
 }

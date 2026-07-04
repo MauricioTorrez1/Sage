@@ -1,14 +1,17 @@
 // Sage coach — Supabase Edge Function (Deno).
-// Verifies the caller's JWT, loads their profile (RLS-scoped), builds a
-// system prompt with their data + daily plan, and relays the chat to Claude.
+// Two modes, both JWT-verified and RLS-scoped to the calling user:
+//   { type: "chat", messages }  → chat reply; persists the turn to chat_messages
+//   { type: "daily_plan", date }→ generates today's meals+exercises checklist
+//                                 (structured outputs) and upserts daily_plans
 // Secrets required: ANTHROPIC_API_KEY (Edge Functions > Secrets).
 import Anthropic from "npm:@anthropic-ai/sdk@0.72.1";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2";
 
 // Cost/quality knob. claude-opus-4-8: $5/$25 per MTok.
 // Cheaper alternative if usage grows: claude-haiku-4-5 ($1/$5 per MTok).
 const MODEL = "claude-opus-4-8";
-const MAX_TOKENS = 1024;
+const CHAT_MAX_TOKENS = 1024;
+const PLAN_MAX_TOKENS = 2048;
 // Hard limits so a runaway client can't rack up spend.
 const MAX_MESSAGES = 30;
 const MAX_MESSAGE_CHARS = 2000;
@@ -29,6 +32,7 @@ type Profile = {
   weight_kg: number | null;
   activity_level: string | null;
   goal: string | null;
+  food_notes: string | null;
 };
 
 // Keep in sync with src/features/plan/calculations.ts.
@@ -89,9 +93,9 @@ const ACTIVITY_LABEL: Record<string, string> = {
   very_active: "actividad intensa diaria",
 };
 
-function buildSystemPrompt(profile: Profile) {
+function profileFacts(profile: Profile) {
   const plan = calculatePlan(profile);
-  const facts = [
+  return [
     profile.display_name && `- Nombre: ${profile.display_name}`,
     profile.age && `- Edad: ${profile.age} años`,
     profile.sex && `- Sexo: ${profile.sex === "male" ? "hombre" : "mujer"}`,
@@ -102,21 +106,74 @@ function buildSystemPrompt(profile: Profile) {
     profile.goal && `- Meta: ${GOAL_LABEL[profile.goal]}`,
     plan &&
     `- Plan diario calculado: ${plan.calories} kcal, ${plan.proteinG} g proteína, ${plan.fatG} g grasas, ${plan.carbsG} g carbohidratos`,
+    profile.food_notes &&
+    `- Notas de comida (alergias, restricciones, gustos, presupuesto): ${profile.food_notes}`,
   ].filter(Boolean).join("\n");
+}
 
+function chatSystemPrompt(profile: Profile) {
   return `Eres Sage 🌿, coach de nutrición y entrenamiento de la app Sage. Hablas español mexicano cálido y cercano, sin tecnicismos innecesarios. Tu filosofía: constancia amable, sin culpas, un día a la vez. Nunca promueves dietas extremas, ayunos agresivos ni déficits severos.
 
 Perfil de la persona:
-${facts}
+${profileFacts(profile)}
 
 Reglas:
 - Responde corto: 2 a 5 oraciones para preguntas simples; usa listas breves solo cuando ayuden de verdad.
+- Respeta SIEMPRE las alergias y restricciones de sus notas de comida: jamás sugieras un alimento que las viole. Ajusta también a sus gustos y presupuesto.
 - Basa tus recomendaciones de comida y entrenamiento en su plan diario y su meta. Sugiere comida accesible y común en México.
 - No eres profesional de la salud. Ante síntomas, lesiones, embarazo, trastornos alimenticios o condiciones médicas, recomienda con calidez consultar a un profesional y no des tratamiento.
 - Si detectas una relación dañina con la comida o el ejercicio, prioriza el bienestar sobre la meta.
 - Solo hablas de nutrición, entrenamiento, hábitos, descanso y bienestar. Si preguntan otra cosa, redirige con humor ligero a tu terreno.
 - No uses encabezados de markdown; texto plano con emojis ocasionales.`;
 }
+
+function dailyPlanSystemPrompt(profile: Profile) {
+  return `Eres Sage, coach de nutrición y entrenamiento. Genera el plan de HOY para esta persona, en español mexicano.
+
+Perfil:
+${profileFacts(profile)}
+
+Reglas:
+- Respeta SIEMPRE las alergias y restricciones de sus notas de comida: jamás incluyas un alimento que las viole. Ajusta también a sus gustos y presupuesto.
+- 3 o 4 comidas cuyas kcal sumen aproximadamente su objetivo diario (±5%), con buena proteína según su meta.
+- Comida real, accesible y común en México; nada rebuscado ni caro.
+- 2 a 4 ejercicios/actividades realistas para su nivel de actividad; si es principiante, empieza suave.
+- "title" corto (máx 6 palabras); "detail" con porciones o series/repeticiones concretas, en una línea.
+- Nunca planes extremos: nada de ayunos agresivos ni ejercicio excesivo.`;
+}
+
+const DAILY_PLAN_SCHEMA = {
+  type: "object",
+  properties: {
+    meals: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          detail: { type: "string" },
+          kcal: { type: "integer" },
+        },
+        required: ["title", "detail", "kcal"],
+        additionalProperties: false,
+      },
+    },
+    exercises: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          detail: { type: "string" },
+        },
+        required: ["title", "detail"],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["meals", "exercises"],
+  additionalProperties: false,
+} as const;
 
 /**
  * Escapes every non-ASCII UTF-16 code unit of the serialized JSON as a
@@ -134,19 +191,143 @@ function toAsciiJson(body: unknown): string {
   return out;
 }
 
+function json(body: unknown, status = 200) {
+  return new Response(toAsciiJson(body), {
+    status,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json; charset=utf-8",
+    },
+  });
+}
+
+function extractText(response: Anthropic.Message) {
+  return response.content
+    .filter((block) => block.type === "text")
+    .map((block) => block.text)
+    .join("");
+}
+
+async function handleChat(
+  supabase: SupabaseClient,
+  anthropic: Anthropic,
+  userId: string,
+  profile: Profile,
+  messages: unknown,
+) {
+  if (
+    !Array.isArray(messages) ||
+    messages.length === 0 ||
+    messages.length > MAX_MESSAGES ||
+    !messages.every(
+      (m): m is ChatMessage =>
+        (m?.role === "user" || m?.role === "assistant") &&
+        typeof m?.content === "string" &&
+        m.content.length > 0 &&
+        m.content.length <= MAX_MESSAGE_CHARS,
+    ) ||
+    messages[messages.length - 1].role !== "user"
+  ) {
+    return json({ error: "bad_request" }, 400);
+  }
+
+  const response = await anthropic.messages.create({
+    model: MODEL,
+    max_tokens: CHAT_MAX_TOKENS,
+    system: chatSystemPrompt(profile),
+    messages,
+  });
+
+  if (response.stop_reason === "refusal") {
+    return json({ error: "refused" }, 502);
+  }
+
+  const reply = extractText(response);
+
+  // Persist the completed turn. RLS scopes the insert to this user; a
+  // failure here shouldn't eat the reply the user is waiting for.
+  const { error: insertError } = await supabase.from("chat_messages").insert([
+    {
+      user_id: userId,
+      role: "user",
+      content: messages[messages.length - 1].content,
+    },
+    { user_id: userId, role: "assistant", content: reply },
+  ]);
+  if (insertError) console.error("chat persist error:", insertError);
+
+  return json({ reply });
+}
+
+async function handleDailyPlan(
+  supabase: SupabaseClient,
+  anthropic: Anthropic,
+  userId: string,
+  profile: Profile,
+  date: unknown,
+) {
+  if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return json({ error: "bad_request" }, 400);
+  }
+
+  const response = await anthropic.messages.create({
+    model: MODEL,
+    max_tokens: PLAN_MAX_TOKENS,
+    system: dailyPlanSystemPrompt(profile),
+    messages: [{ role: "user", content: `Genera mi plan del día ${date}.` }],
+    output_config: {
+      format: { type: "json_schema", schema: DAILY_PLAN_SCHEMA },
+    },
+  });
+
+  if (response.stop_reason === "refusal") {
+    return json({ error: "refused" }, 502);
+  }
+
+  const generated = JSON.parse(extractText(response)) as {
+    meals: { title: string; detail: string; kcal: number }[];
+    exercises: { title: string; detail: string }[];
+  };
+
+  const items = [
+    ...generated.meals.map((meal) => ({
+      id: crypto.randomUUID(),
+      kind: "meal",
+      title: meal.title,
+      detail: meal.detail,
+      kcal: meal.kcal,
+      done: false,
+    })),
+    ...generated.exercises.map((exercise) => ({
+      id: crypto.randomUUID(),
+      kind: "exercise",
+      title: exercise.title,
+      detail: exercise.detail,
+      done: false,
+    })),
+  ];
+
+  // Regenerating replaces the day's items (checkmarks included).
+  const { data: plan, error: upsertError } = await supabase
+    .from("daily_plans")
+    .upsert(
+      { user_id: userId, plan_date: date, items },
+      { onConflict: "user_id,plan_date" },
+    )
+    .select()
+    .single();
+  if (upsertError || !plan) {
+    console.error("daily plan upsert error:", upsertError);
+    return json({ error: "internal" }, 500);
+  }
+
+  return json({ plan });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
-
-  const json = (body: unknown, status = 200) =>
-    new Response(toAsciiJson(body), {
-      status,
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "application/json; charset=utf-8",
-      },
-    });
 
   try {
     // RLS-scoped client: acts as the calling user.
@@ -166,22 +347,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json().catch(() => null);
-    const messages: unknown = body?.messages;
-    if (
-      !Array.isArray(messages) ||
-      messages.length === 0 ||
-      messages.length > MAX_MESSAGES ||
-      !messages.every(
-        (m): m is ChatMessage =>
-          (m?.role === "user" || m?.role === "assistant") &&
-          typeof m?.content === "string" &&
-          m.content.length > 0 &&
-          m.content.length <= MAX_MESSAGE_CHARS,
-      ) ||
-      messages[messages.length - 1].role !== "user"
-    ) {
-      return json({ error: "bad_request" }, 400);
-    }
+    if (!body) return json({ error: "bad_request" }, 400);
 
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
@@ -196,23 +362,27 @@ Deno.serve(async (req) => {
       apiKey: Deno.env.get("ANTHROPIC_API_KEY")!,
     });
 
-    const response = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: MAX_TOKENS,
-      system: buildSystemPrompt(profile as Profile),
-      messages,
-    });
-
-    if (response.stop_reason === "refusal") {
-      return json({ error: "refused" }, 502);
+    // Default to chat for backwards compatibility with older app builds.
+    const type = body.type ?? "chat";
+    if (type === "chat") {
+      return await handleChat(
+        supabase,
+        anthropic,
+        userData.user.id,
+        profile as Profile,
+        body.messages,
+      );
     }
-
-    const reply = response.content
-      .filter((block) => block.type === "text")
-      .map((block) => block.text)
-      .join("");
-
-    return json({ reply });
+    if (type === "daily_plan") {
+      return await handleDailyPlan(
+        supabase,
+        anthropic,
+        userData.user.id,
+        profile as Profile,
+        body.date,
+      );
+    }
+    return json({ error: "bad_request" }, 400);
   } catch (error) {
     if (error instanceof Anthropic.RateLimitError) {
       return json({ error: "busy" }, 429);

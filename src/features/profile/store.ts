@@ -27,28 +27,44 @@ export async function loadProfile(userId: string) {
   useProfileStore.setState({ profile: data as Profile, loaded: true });
 }
 
-/** Saves the onboarding answers and stamps onboarded_at. */
-export async function completeOnboarding(
-  userId: string,
-  input: OnboardingInput,
-) {
+function toRow(input: OnboardingInput) {
+  return {
+    display_name: input.displayName,
+    age: input.age,
+    sex: input.sex,
+    height_cm: input.heightCm,
+    weight_kg: input.weightKg,
+    activity_level: input.activityLevel,
+    goal: input.goal,
+    food_notes: input.foodNotes || null,
+  };
+}
+
+async function saveProfile(userId: string, row: Record<string, unknown>) {
   const { data, error } = await supabase
     .from("profiles")
-    .update({
-      display_name: input.displayName,
-      age: input.age,
-      sex: input.sex,
-      height_cm: input.heightCm,
-      weight_kg: input.weightKg,
-      activity_level: input.activityLevel,
-      goal: input.goal,
-      onboarded_at: new Date().toISOString(),
-    })
+    .update(row)
     .eq("id", userId)
     .select()
     .single();
   if (error) throw error;
   useProfileStore.setState({ profile: data as Profile });
+}
+
+/** Saves the onboarding answers and stamps onboarded_at. */
+export async function completeOnboarding(
+  userId: string,
+  input: OnboardingInput,
+) {
+  await saveProfile(userId, {
+    ...toRow(input),
+    onboarded_at: new Date().toISOString(),
+  });
+}
+
+/** Updates an existing profile; the plan recomputes from the store. */
+export async function updateProfile(userId: string, input: OnboardingInput) {
+  await saveProfile(userId, toRow(input));
 }
 
 /** Clears cached profile state; call when the user signs out. */

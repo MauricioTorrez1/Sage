@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "@/components/ui/Button";
 import { calculatePlan } from "@/features/plan/calculations";
+import { DailyPlanCard } from "@/features/plan/DailyPlanCard";
 import { useProfileStore } from "@/features/profile/store";
 import type { Goal } from "@/features/profile/types";
 import { supabase } from "@/lib/supabase";
@@ -39,11 +40,22 @@ export default function HomeScreen() {
         className="flex-1"
         contentContainerClassName="flex-grow px-6 py-8"
       >
-        <Text className="font-nunito-extrabold text-3xl text-ink dark:text-ink-inverse">
-          {profile?.display_name
-            ? t("home.greetingName", { name: profile.display_name })
-            : t("home.greeting")}
-        </Text>
+        <View className="flex-row items-center justify-between">
+          <Text className="flex-1 font-nunito-extrabold text-3xl text-ink dark:text-ink-inverse">
+            {profile?.display_name
+              ? t("home.greetingName", { name: profile.display_name })
+              : t("home.greeting")}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("home.editProfile")}
+            onPress={() => router.push("/profile")}
+            className="ml-3 h-10 w-10 items-center justify-center rounded-full bg-sage-100 dark:bg-sage-800"
+            style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+          >
+            <Text>✏️</Text>
+          </Pressable>
+        </View>
         {profile?.goal ? (
           <View className="mt-2 self-start rounded-full bg-sage-100 px-3 py-1 dark:bg-sage-800">
             <Text className="font-nunito-semibold text-sm text-sage-700 dark:text-sage-200">
@@ -84,6 +96,8 @@ export default function HomeScreen() {
             </Text>
           </View>
         )}
+
+        <DailyPlanCard />
 
         <Pressable
           accessibilityRole="button"

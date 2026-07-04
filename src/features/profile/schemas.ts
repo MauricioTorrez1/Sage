@@ -36,6 +36,10 @@ export const goalSchema = z.object({
   goal: z.enum(["lose_weight", "maintain", "gain_muscle"], {
     error: "onboarding.errors.goal",
   }),
+  foodNotes: z
+    .string()
+    .trim()
+    .max(500, { error: "onboarding.errors.foodNotes" }),
 });
 
 export type AboutYouInput = z.infer<typeof aboutYouSchema>;

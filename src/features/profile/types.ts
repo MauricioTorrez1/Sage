@@ -19,6 +19,7 @@ export type Profile = {
   weight_kg: number | null;
   activity_level: ActivityLevel | null;
   goal: Goal | null;
+  food_notes: string | null;
   onboarded_at: string | null;
   created_at: string;
   updated_at: string;

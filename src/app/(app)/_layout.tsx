@@ -4,6 +4,7 @@ import { ActivityIndicator, View } from "react-native";
 
 import { useAuthStore } from "@/features/auth/store";
 import { resetCoach } from "@/features/coach/store";
+import { resetDailyPlan } from "@/features/plan/daily-store";
 import {
   loadProfile,
   resetProfile,
@@ -26,6 +27,7 @@ export default function AppLayout() {
     return () => {
       resetProfile();
       resetCoach();
+      resetDailyPlan();
     };
   }, [userId]);
 
@@ -47,6 +49,7 @@ export default function AppLayout() {
       <Stack.Protected guard={onboarded}>
         <Stack.Screen name="home" />
         <Stack.Screen name="coach" />
+        <Stack.Screen name="profile" />
       </Stack.Protected>
     </Stack>
   );

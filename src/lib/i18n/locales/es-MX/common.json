@@ -97,6 +97,9 @@
     "goalMaintainDesc": "Comer mejor y sostener mi peso",
     "goalGain": "Ganar músculo",
     "goalGainDesc": "Fuerza y un superávit ligero",
+    "foodNotes": "Alergias, gustos y presupuesto (opcional)",
+    "foodNotesPlaceholder": "Ej. alérgico a mariscos, no como cerdo, presupuesto ajustado, odio el brócoli...",
+    "foodNotesHint": "Sage lo tomará en cuenta en tu plan y en el chat. Puedes cambiarlo después en tu perfil.",
     "next": "Siguiente",
     "back": "Atrás",
     "finish": "¡Listo, empecemos! 🌿",
@@ -107,7 +110,8 @@
       "height": "Escribe una estatura entre 90 y 250 cm",
       "weight": "Escribe un peso entre 30 y 300 kg",
       "activity": "Elige qué tanto te mueves",
-      "goal": "Elige tu meta para continuar"
+      "goal": "Elige tu meta para continuar",
+      "foodNotes": "Máximo 500 caracteres"
     }
   },
   "plan": {
@@ -131,9 +135,29 @@
       "generic": "No se pudo enviar tu mensaje. Revisa tu conexión y vuelve a intentar."
     }
   },
+  "dailyPlan": {
+    "title": "Tu día",
+    "empty": "Sage puede armarte el día de hoy: comidas que cuadran con tus calorías y ejercicio a tu nivel.",
+    "generate": "Genera mi día con Sage 🌿",
+    "regenerate": "Regenerar día",
+    "progress": "Avance del día: {{percent}}%",
+    "meals": "Comidas",
+    "exercises": "Entrenamiento",
+    "errors": {
+      "generate": "No se pudo generar tu día. Intenta de nuevo en un momento.",
+      "save": "No se guardó el cambio. Revisa tu conexión e intenta de nuevo."
+    }
+  },
+  "profile": {
+    "title": "Tu perfil",
+    "subtitle": "Actualiza tus datos y tu plan se recalcula solito",
+    "save": "Guardar cambios",
+    "cancel": "Cancelar"
+  },
   "home": {
     "greeting": "¡Hola! 🌿",
     "greetingName": "¡Hola, {{name}}! 🌿",
+    "editProfile": "Editar perfil",
     "coachTitle": "Habla con Sage",
     "coachSubtitle": "Dudas de comida, entrenamiento o tu plan — aquí ando.",
     "disclaimer": "Sage da orientación general de bienestar, no consejo médico. Consulta a un profesional de salud."

@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { ChatMessage } from "@/features/coach/store";
 import {
+  loadHistory,
   MAX_MESSAGE_CHARS,
   sendMessage,
   useCoachStore,
@@ -47,7 +48,12 @@ export default function CoachScreen() {
   const messages = useCoachStore((state) => state.messages);
   const sending = useCoachStore((state) => state.sending);
   const errorKey = useCoachStore((state) => state.errorKey);
+  const historyLoaded = useCoachStore((state) => state.historyLoaded);
   const [draft, setDraft] = useState("");
+
+  useEffect(() => {
+    loadHistory();
+  }, []);
 
   function handleSend() {
     const text = draft.trim();
@@ -82,6 +88,11 @@ export default function CoachScreen() {
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
+        {!historyLoaded ? (
+          <View className="flex-1 items-center justify-center">
+            <ActivityIndicator size="large" color={tokens.colors.sage[500]} />
+          </View>
+        ) : (
         <FlatList
           className="flex-1"
           contentContainerClassName="px-4 py-4"
@@ -110,6 +121,7 @@ export default function CoachScreen() {
             </View>
           }
         />
+        )}
 
         {errorKey ? (
           <Text className="px-4 pb-2 font-nunito text-sm text-terracotta-600 dark:text-terracotta-300">

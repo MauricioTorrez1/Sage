@@ -14,6 +14,11 @@ import { OptionGroup } from "@/components/ui/OptionGroup";
 import { TextField } from "@/components/ui/TextField";
 import { useAuthStore } from "@/features/auth/store";
 import {
+  activityOptions,
+  goalOptions,
+  sexOptions,
+} from "@/features/profile/options";
+import {
   aboutYouSchema,
   bodySchema,
   goalSchema,
@@ -38,6 +43,7 @@ export default function OnboardingScreen() {
     null,
   );
   const [goal, setGoal] = useState<Goal | null>(null);
+  const [foodNotes, setFoodNotes] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -59,7 +65,7 @@ export default function OnboardingScreen() {
 
   async function handleFinish() {
     setFormError(null);
-    const parsedGoal = goalSchema.safeParse({ goal });
+    const parsedGoal = goalSchema.safeParse({ goal, foodNotes });
     if (!parsedGoal.success) {
       setErrors(fieldErrors(parsedGoal.error));
       return;
@@ -145,10 +151,7 @@ export default function OnboardingScreen() {
               />
               <OptionGroup
                 label={t("onboarding.sex")}
-                options={[
-                  { value: "female", label: t("onboarding.female") },
-                  { value: "male", label: t("onboarding.male") },
-                ]}
+                options={sexOptions(t)}
                 value={sex}
                 onChange={setSex}
                 error={errors.sex ? t(errors.sex) : undefined}
@@ -181,33 +184,7 @@ export default function OnboardingScreen() {
               />
               <OptionGroup
                 label={t("onboarding.activity")}
-                options={[
-                  {
-                    value: "sedentary",
-                    label: t("onboarding.activitySedentary"),
-                    description: t("onboarding.activitySedentaryDesc"),
-                  },
-                  {
-                    value: "light",
-                    label: t("onboarding.activityLight"),
-                    description: t("onboarding.activityLightDesc"),
-                  },
-                  {
-                    value: "moderate",
-                    label: t("onboarding.activityModerate"),
-                    description: t("onboarding.activityModerateDesc"),
-                  },
-                  {
-                    value: "active",
-                    label: t("onboarding.activityActive"),
-                    description: t("onboarding.activityActiveDesc"),
-                  },
-                  {
-                    value: "very_active",
-                    label: t("onboarding.activityVeryActive"),
-                    description: t("onboarding.activityVeryActiveDesc"),
-                  },
-                ]}
+                options={activityOptions(t)}
                 value={activityLevel}
                 onChange={setActivityLevel}
                 error={errors.activityLevel ? t(errors.activityLevel) : undefined}
@@ -216,29 +193,28 @@ export default function OnboardingScreen() {
           )}
 
           {step === 3 && (
-            <OptionGroup
-              label={t("onboarding.goal")}
-              options={[
-                {
-                  value: "lose_weight",
-                  label: t("onboarding.goalLose"),
-                  description: t("onboarding.goalLoseDesc"),
-                },
-                {
-                  value: "maintain",
-                  label: t("onboarding.goalMaintain"),
-                  description: t("onboarding.goalMaintainDesc"),
-                },
-                {
-                  value: "gain_muscle",
-                  label: t("onboarding.goalGain"),
-                  description: t("onboarding.goalGainDesc"),
-                },
-              ]}
-              value={goal}
-              onChange={setGoal}
-              error={errors.goal ? t(errors.goal) : undefined}
-            />
+            <>
+              <OptionGroup
+                label={t("onboarding.goal")}
+                options={goalOptions(t)}
+                value={goal}
+                onChange={setGoal}
+                error={errors.goal ? t(errors.goal) : undefined}
+              />
+              <TextField
+                label={t("onboarding.foodNotes")}
+                placeholder={t("onboarding.foodNotesPlaceholder")}
+                value={foodNotes}
+                onChangeText={setFoodNotes}
+                error={errors.foodNotes ? t(errors.foodNotes) : undefined}
+                multiline
+                numberOfLines={3}
+                maxLength={500}
+              />
+              <Text className="mb-4 font-nunito text-sm text-ink-soft dark:text-ink-invmuted">
+                {t("onboarding.foodNotesHint")}
+              </Text>
+            </>
           )}
 
           {formError ? (
