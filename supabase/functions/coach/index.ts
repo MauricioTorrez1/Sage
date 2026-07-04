@@ -11,8 +11,14 @@ import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2";
 // Cost/quality knob. claude-sonnet-5 balances quality and price for a demo.
 // Cheaper alternative if usage grows: claude-haiku-4-5.
 const MODEL = "claude-sonnet-5";
-const CHAT_MAX_TOKENS = 1024;
-const PLAN_MAX_TOKENS = 2048;
+// Sonnet 5 runs adaptive thinking when `thinking` is omitted, and thinking
+// spends from max_tokens — which truncated the daily-plan JSON. Disable it
+// explicitly on every call to keep outputs fast and within budget.
+const THINKING = { type: "disabled" } as const;
+// Sonnet 5's tokenizer yields ~30% more tokens for the same text than the
+// old Opus one; budgets sized up accordingly.
+const CHAT_MAX_TOKENS = 1400;
+const PLAN_MAX_TOKENS = 3000;
 // Hard limits so a runaway client can't rack up spend.
 const MAX_MESSAGES = 30;
 const MAX_MESSAGE_CHARS = 2000;
@@ -357,6 +363,7 @@ async function handleChat(
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: CHAT_MAX_TOKENS,
+    thinking: THINKING,
     system: chatSystemPrompt(profile, context),
     messages,
   });
@@ -407,6 +414,7 @@ async function handleDailyPlan(
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: PLAN_MAX_TOKENS,
+    thinking: THINKING,
     system: dailyPlanSystemPrompt(profile, kept),
     messages: [{ role: "user", content: `Genera mi plan del día ${date}.` }],
     output_config: {
@@ -532,7 +540,8 @@ async function handlePhotoAnalysis(
 
   const response = await anthropic.messages.create({
     model: MODEL,
-    max_tokens: 600,
+    max_tokens: 800,
+    thinking: THINKING,
     system: photoAnalysisSystemPrompt(profile),
     messages: [{ role: "user", content }],
   });
