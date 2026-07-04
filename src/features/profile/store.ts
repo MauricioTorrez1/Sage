@@ -37,6 +37,7 @@ function toRow(input: OnboardingInput) {
     activity_level: input.activityLevel,
     goal: input.goal,
     food_notes: input.foodNotes || null,
+    supplements: input.supplements || null,
   };
 }
 

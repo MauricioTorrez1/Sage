@@ -5,6 +5,7 @@ import { ActivityIndicator, View } from "react-native";
 import { useAuthStore } from "@/features/auth/store";
 import { resetCoach } from "@/features/coach/store";
 import { resetDailyPlan } from "@/features/plan/daily-store";
+import { resetProgress } from "@/features/progress/store";
 import {
   loadProfile,
   resetProfile,
@@ -28,6 +29,7 @@ export default function AppLayout() {
       resetProfile();
       resetCoach();
       resetDailyPlan();
+      resetProgress();
     };
   }, [userId]);
 
@@ -50,6 +52,7 @@ export default function AppLayout() {
         <Stack.Screen name="home" />
         <Stack.Screen name="coach" />
         <Stack.Screen name="profile" />
+        <Stack.Screen name="progress" />
       </Stack.Protected>
     </Stack>
   );

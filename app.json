@@ -33,7 +33,14 @@
           }
         }
       ],
-      "expo-localization"
+      "expo-localization",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Sage usa tus fotos para registrar tu progreso físico.",
+          "cameraPermission": "Sage usa la cámara para tomar tus fotos de progreso."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

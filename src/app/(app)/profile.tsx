@@ -41,6 +41,7 @@ export default function ProfileScreen() {
   );
   const [goal, setGoal] = useState<Goal | null>(profile?.goal ?? null);
   const [foodNotes, setFoodNotes] = useState(profile?.food_notes ?? "");
+  const [supplements, setSupplements] = useState(profile?.supplements ?? "");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -49,7 +50,7 @@ export default function ProfileScreen() {
     setFormError(null);
     const aboutYou = aboutYouSchema.safeParse({ displayName, age, sex });
     const body = bodySchema.safeParse({ heightCm, weightKg, activityLevel });
-    const goalParsed = goalSchema.safeParse({ goal, foodNotes });
+    const goalParsed = goalSchema.safeParse({ goal, foodNotes, supplements });
     if (!aboutYou.success || !body.success || !goalParsed.success) {
       setErrors({
         ...(aboutYou.success ? {} : fieldErrors(aboutYou.error)),
@@ -144,6 +145,16 @@ export default function ProfileScreen() {
         error={errors.foodNotes ? t(errors.foodNotes) : undefined}
         multiline
         numberOfLines={3}
+        maxLength={500}
+      />
+      <TextField
+        label={t("onboarding.supplements")}
+        placeholder={t("onboarding.supplementsPlaceholder")}
+        value={supplements}
+        onChangeText={setSupplements}
+        error={errors.supplements ? t(errors.supplements) : undefined}
+        multiline
+        numberOfLines={2}
         maxLength={500}
       />
 

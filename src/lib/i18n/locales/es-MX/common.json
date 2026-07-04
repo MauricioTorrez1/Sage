@@ -100,6 +100,8 @@
     "foodNotes": "Alergias, gustos y presupuesto (opcional)",
     "foodNotesPlaceholder": "Ej. alérgico a mariscos, no como cerdo, presupuesto ajustado, odio el brócoli...",
     "foodNotesHint": "Sage lo tomará en cuenta en tu plan y en el chat. Puedes cambiarlo después en tu perfil.",
+    "supplements": "Suplementos que tomas (opcional)",
+    "supplementsPlaceholder": "Ej. proteína en polvo, creatina 5g, multivitamínico...",
     "next": "Siguiente",
     "back": "Atrás",
     "finish": "¡Listo, empecemos! 🌿",
@@ -146,6 +148,24 @@
     "errors": {
       "generate": "No se pudo generar tu día. Intenta de nuevo en un momento.",
       "save": "No se guardó el cambio. Revisa tu conexión e intenta de nuevo."
+    }
+  },
+  "progress": {
+    "title": "Tu progreso",
+    "takePhoto": "Tomar foto",
+    "pickPhoto": "De la galería",
+    "empty": "Sube tu primera foto para tener tu punto de partida. Sage la analizará y luego irá comparando tu avance con cada foto nueva.",
+    "analyzing": "Sage está analizando tu foto...",
+    "analyze": "Analizar con Sage 🌿",
+    "cardTitle": "Tu progreso",
+    "cardEmpty": "Sube tu primera foto: tu punto de partida.",
+    "cardDue": "Ya pasó una semana — hora de una nueva foto.",
+    "cardRecent_one": "Última foto hace {{count}} día.",
+    "cardRecent_other": "Última foto hace {{count}} días.",
+    "errors": {
+      "permission": "Sage necesita permiso para usar tu cámara o galería. Actívalo en Ajustes.",
+      "upload": "No se pudo subir la foto. Revisa tu conexión e intenta de nuevo.",
+      "analyze": "No se pudo analizar la foto. Tócala para intentar de nuevo."
     }
   },
   "profile": {

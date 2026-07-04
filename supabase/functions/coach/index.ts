@@ -33,6 +33,7 @@ type Profile = {
   activity_level: string | null;
   goal: string | null;
   food_notes: string | null;
+  supplements: string | null;
 };
 
 // Keep in sync with src/features/plan/calculations.ts.
@@ -108,6 +109,8 @@ function profileFacts(profile: Profile) {
     `- Plan diario calculado: ${plan.calories} kcal, ${plan.proteinG} g proteína, ${plan.fatG} g grasas, ${plan.carbsG} g carbohidratos`,
     profile.food_notes &&
     `- Notas de comida (alergias, restricciones, gustos, presupuesto): ${profile.food_notes}`,
+    profile.supplements &&
+    `- Suplementos que toma: ${profile.supplements}`,
   ].filter(Boolean).join("\n");
 }
 
@@ -135,11 +138,26 @@ ${profileFacts(profile)}
 
 Reglas:
 - Respeta SIEMPRE las alergias y restricciones de sus notas de comida: jamás incluyas un alimento que las viole. Ajusta también a sus gustos y presupuesto.
+- Si toma suplementos, intégralos al plan donde tengan sentido (p. ej. batido de proteína post-entreno, creatina con una comida) contando sus kcal; no recomiendes suplementos nuevos.
 - 3 o 4 comidas cuyas kcal sumen aproximadamente su objetivo diario (±5%), con buena proteína según su meta.
 - Comida real, accesible y común en México; nada rebuscado ni caro.
 - 2 a 4 ejercicios/actividades realistas para su nivel de actividad; si es principiante, empieza suave.
 - "title" corto (máx 6 palabras); "detail" con porciones o series/repeticiones concretas, en una línea.
 - Nunca planes extremos: nada de ayunos agresivos ni ejercicio excesivo.`;
+}
+
+function photoAnalysisSystemPrompt(profile: Profile) {
+  return `Eres Sage 🌿, coach de nutrición y entrenamiento. Evalúa el progreso físico de la persona a partir de sus fotos, en español mexicano cálido.
+
+Perfil:
+${profileFacts(profile)}
+
+Reglas:
+- 3 a 6 oraciones, texto plano, sin encabezados.
+- Sé honesto pero amable: reconoce lo que sí avanza y sugiere 1 o 2 enfoques concretos alineados a su meta.
+- Si solo hay una foto, descríbela como punto de partida y di qué observar en las siguientes.
+- Las fotos caseras varían en luz, ángulo y ropa: no saques conclusiones tajantes ni compares milímetros.
+- Nada de diagnósticos médicos ni porcentajes de grasa exactos. Si algo requiere atención médica, recomiéndalo con calidez.`;
 }
 
 const DAILY_PLAN_SCHEMA = {
@@ -324,6 +342,98 @@ async function handleDailyPlan(
   return json({ plan });
 }
 
+async function handlePhotoAnalysis(
+  supabase: SupabaseClient,
+  anthropic: Anthropic,
+  profile: Profile,
+  photoId: unknown,
+) {
+  if (typeof photoId !== "string" || photoId.length > 64) {
+    return json({ error: "bad_request" }, 400);
+  }
+
+  // RLS guarantees these rows belong to the caller.
+  const { data: photo, error: photoError } = await supabase
+    .from("progress_photos")
+    .select("*")
+    .eq("id", photoId)
+    .single();
+  if (photoError || !photo) {
+    return json({ error: "photo_not_found" }, 404);
+  }
+
+  const { data: previous } = await supabase
+    .from("progress_photos")
+    .select("*")
+    .lt("created_at", photo.created_at)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const signedUrl = async (path: string) => {
+    const { data, error } = await supabase.storage
+      .from("progress-photos")
+      .createSignedUrl(path, 600);
+    if (error || !data) throw error ?? new Error("sign failed");
+    return data.signedUrl;
+  };
+
+  const content: Anthropic.ContentBlockParam[] = [];
+  if (previous) {
+    content.push(
+      {
+        type: "text",
+        text: `Foto ANTERIOR (${previous.created_at.slice(0, 10)}${
+          previous.weight_kg ? `, ${previous.weight_kg} kg` : ""
+        }):`,
+      },
+      {
+        type: "image",
+        source: { type: "url", url: await signedUrl(previous.storage_path) },
+      },
+    );
+  }
+  content.push(
+    {
+      type: "text",
+      text: `Foto NUEVA (${photo.created_at.slice(0, 10)}${
+        photo.weight_kg ? `, ${photo.weight_kg} kg` : ""
+      }):`,
+    },
+    {
+      type: "image",
+      source: { type: "url", url: await signedUrl(photo.storage_path) },
+    },
+    {
+      type: "text",
+      text: previous
+        ? "Evalúa mi progreso entre estas dos fotos."
+        : "Esta es mi primera foto: descríbela como mi punto de partida.",
+    },
+  );
+
+  const response = await anthropic.messages.create({
+    model: MODEL,
+    max_tokens: 600,
+    system: photoAnalysisSystemPrompt(profile),
+    messages: [{ role: "user", content }],
+  });
+
+  if (response.stop_reason === "refusal") {
+    return json({ error: "refused" }, 502);
+  }
+
+  const analysis = extractText(response);
+
+  const { error: updateError } = await supabase
+    .from("progress_photos")
+    .update({ analysis })
+    .eq("id", photoId);
+  if (updateError) console.error("analysis save error:", updateError);
+
+  return json({ analysis });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -380,6 +490,14 @@ Deno.serve(async (req) => {
         userData.user.id,
         profile as Profile,
         body.date,
+      );
+    }
+    if (type === "photo_analysis") {
+      return await handlePhotoAnalysis(
+        supabase,
+        anthropic,
+        profile as Profile,
+        body.photo_id,
       );
     }
     return json({ error: "bad_request" }, 400);

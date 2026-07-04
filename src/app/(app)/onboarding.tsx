@@ -44,6 +44,7 @@ export default function OnboardingScreen() {
   );
   const [goal, setGoal] = useState<Goal | null>(null);
   const [foodNotes, setFoodNotes] = useState("");
+  const [supplements, setSupplements] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -65,7 +66,7 @@ export default function OnboardingScreen() {
 
   async function handleFinish() {
     setFormError(null);
-    const parsedGoal = goalSchema.safeParse({ goal, foodNotes });
+    const parsedGoal = goalSchema.safeParse({ goal, foodNotes, supplements });
     if (!parsedGoal.success) {
       setErrors(fieldErrors(parsedGoal.error));
       return;
@@ -214,6 +215,16 @@ export default function OnboardingScreen() {
               <Text className="mb-4 font-nunito text-sm text-ink-soft dark:text-ink-invmuted">
                 {t("onboarding.foodNotesHint")}
               </Text>
+              <TextField
+                label={t("onboarding.supplements")}
+                placeholder={t("onboarding.supplementsPlaceholder")}
+                value={supplements}
+                onChangeText={setSupplements}
+                error={errors.supplements ? t(errors.supplements) : undefined}
+                multiline
+                numberOfLines={2}
+                maxLength={500}
+              />
             </>
           )}
 

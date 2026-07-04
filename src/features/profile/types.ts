@@ -20,6 +20,7 @@ export type Profile = {
   activity_level: ActivityLevel | null;
   goal: Goal | null;
   food_notes: string | null;
+  supplements: string | null;
   onboarded_at: string | null;
   created_at: string;
   updated_at: string;

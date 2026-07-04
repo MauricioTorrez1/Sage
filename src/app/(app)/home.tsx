@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Button } from "@/components/ui/Button";
 import { calculatePlan } from "@/features/plan/calculations";
 import { DailyPlanCard } from "@/features/plan/DailyPlanCard";
+import { ProgressCard } from "@/features/progress/ProgressCard";
 import { useProfileStore } from "@/features/profile/store";
 import type { Goal } from "@/features/profile/types";
 import { supabase } from "@/lib/supabase";
@@ -98,6 +99,8 @@ export default function HomeScreen() {
         )}
 
         <DailyPlanCard />
+
+        <ProgressCard />
 
         <Pressable
           accessibilityRole="button"

@@ -40,6 +40,10 @@ export const goalSchema = z.object({
     .string()
     .trim()
     .max(500, { error: "onboarding.errors.foodNotes" }),
+  supplements: z
+    .string()
+    .trim()
+    .max(500, { error: "onboarding.errors.foodNotes" }),
 });
 
 export type AboutYouInput = z.infer<typeof aboutYouSchema>;
