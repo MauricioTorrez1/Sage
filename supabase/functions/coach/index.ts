@@ -114,14 +114,67 @@ function profileFacts(profile: Profile) {
   ].filter(Boolean).join("\n");
 }
 
-function chatSystemPrompt(profile: Profile) {
+type DailyPlanItem = {
+  kind: "meal" | "exercise";
+  title: string;
+  detail: string;
+  kcal?: number;
+  done: boolean;
+};
+
+/** Today's checklist + latest photo analysis, so the chat can reference them. */
+async function chatContext(supabase: SupabaseClient, localDate: unknown) {
+  let context = "";
+
+  if (typeof localDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(localDate)) {
+    const { data: plan } = await supabase
+      .from("daily_plans")
+      .select("items")
+      .eq("plan_date", localDate)
+      .maybeSingle();
+    const items = (plan?.items ?? []) as DailyPlanItem[];
+    if (items.length > 0) {
+      const lines = items
+        .map(
+          (item) =>
+            `- [${item.done ? "x" : " "}] ${
+              item.kind === "meal" ? "Comida" : "Ejercicio"
+            }: ${item.title} — ${item.detail}${
+              item.kcal ? ` (${item.kcal} kcal)` : ""
+            }`,
+        )
+        .join("\n");
+      context +=
+        `\n\nPlan de HOY (${localDate}); [x] = ya lo completó:\n${lines}`;
+    }
+  }
+
+  const { data: photo } = await supabase
+    .from("progress_photos")
+    .select("created_at, analysis")
+    .not("analysis", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (photo?.analysis) {
+    context += `\n\nÚltimo análisis de progreso (foto del ${
+      photo.created_at.slice(0, 10)
+    }):\n${photo.analysis}`;
+  }
+
+  return context;
+}
+
+function chatSystemPrompt(profile: Profile, context: string) {
   return `Eres Sage 🌿, coach de nutrición y entrenamiento de la app Sage. Hablas español mexicano cálido y cercano, sin tecnicismos innecesarios. Tu filosofía: constancia amable, sin culpas, un día a la vez. Nunca promueves dietas extremas, ayunos agresivos ni déficits severos.
 
 Perfil de la persona:
-${profileFacts(profile)}
+${profileFacts(profile)}${context}
 
 Reglas:
 - Responde corto: 2 a 5 oraciones para preguntas simples; usa listas breves solo cuando ayuden de verdad.
+- Si tienes su plan de HOY, úsalo para dar consejos concretos: qué le falta por comer o entrenar, ajustes si ya se salió del plan, y reconoce lo que ya completó.
+- Si tienes su último análisis de progreso, úsalo cuando pregunte cómo va o qué mejorar.
 - Respeta SIEMPRE las alergias y restricciones de sus notas de comida: jamás sugieras un alimento que las viole. Ajusta también a sus gustos y presupuesto.
 - Basa tus recomendaciones de comida y entrenamiento en su plan diario y su meta. Sugiere comida accesible y común en México.
 - No eres profesional de la salud. Ante síntomas, lesiones, embarazo, trastornos alimenticios o condiciones médicas, recomienda con calidez consultar a un profesional y no des tratamiento.
@@ -232,6 +285,7 @@ async function handleChat(
   userId: string,
   profile: Profile,
   messages: unknown,
+  localDate: unknown,
 ) {
   if (
     !Array.isArray(messages) ||
@@ -249,10 +303,12 @@ async function handleChat(
     return json({ error: "bad_request" }, 400);
   }
 
+  const context = await chatContext(supabase, localDate);
+
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: CHAT_MAX_TOKENS,
-    system: chatSystemPrompt(profile),
+    system: chatSystemPrompt(profile, context),
     messages,
   });
 
@@ -481,6 +537,7 @@ Deno.serve(async (req) => {
         userData.user.id,
         profile as Profile,
         body.messages,
+        body.date,
       );
     }
     if (type === "daily_plan") {

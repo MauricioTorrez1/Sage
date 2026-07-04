@@ -1,5 +1,6 @@
 import { create } from "zustand";
 
+import { todayKey } from "@/features/plan/daily-store";
 import { supabase } from "@/lib/supabase";
 
 export type ChatMessage = {
@@ -62,7 +63,12 @@ export async function sendMessage(text: string) {
   useCoachStore.setState({ messages: history, sending: true, errorKey: null });
 
   const { data, error } = await supabase.functions.invoke("coach", {
-    body: { type: "chat", messages: history.slice(-HISTORY_SENT) },
+    // The local date lets the server attach today's plan to the prompt.
+    body: {
+      type: "chat",
+      messages: history.slice(-HISTORY_SENT),
+      date: todayKey(),
+    },
   });
 
   if (error || typeof data?.reply !== "string") {
