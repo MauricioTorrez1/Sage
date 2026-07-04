@@ -22,7 +22,7 @@ export default function WelcomeScreen() {
         </Animated.View>
 
         <Animated.View entering={FadeInDown.duration(600).delay(150)}>
-          <Text className="mt-6 font-nunito-extrabold text-5xl text-ink dark:text-ink-inverse">
+          <Text className="mt-6 font-nunito-extrabold text-5xl leading-[56px] text-ink dark:text-ink-inverse">
             {t("welcome.appName")}
           </Text>
         </Animated.View>

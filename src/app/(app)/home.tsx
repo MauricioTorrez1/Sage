@@ -86,7 +86,7 @@ export default function HomeScreen() {
               {t("plan.title")}
             </Text>
             <View className="mt-3 flex-row items-baseline">
-              <Text className="font-nunito-extrabold text-5xl text-terracotta-500">
+              <Text className="font-nunito-extrabold text-5xl leading-[56px] text-terracotta-500">
                 {plan.calories}
               </Text>
               <Text className="ml-2 font-nunito-semibold text-base text-ink-muted dark:text-ink-invmuted">

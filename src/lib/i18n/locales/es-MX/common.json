@@ -182,7 +182,9 @@
     "themeSystem": "Automático",
     "themeSystemDesc": "Sigue el modo claro/oscuro de tu teléfono",
     "themeLight": "Claro",
-    "themeDark": "Oscuro"
+    "themeDark": "Oscuro",
+    "donateTitle": "Apoya el proyecto ♥",
+    "donateSubtitle": "Sage es y será gratis. Si te sirve, puedes invitarme un cafecito — nada cambia si no lo haces."
   },
   "home": {
     "greeting": "¡Hola! 🌿",

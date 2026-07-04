@@ -1,7 +1,8 @@
+import * as Linking from "expo-linking";
 import { router } from "expo-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Text } from "react-native";
+import { Pressable, Text } from "react-native";
 
 import { AuthLayout } from "@/components/ui/AuthLayout";
 import { Button } from "@/components/ui/Button";
@@ -23,6 +24,10 @@ import type { ActivityLevel, Goal, Sex } from "@/features/profile/types";
 import type { ThemePreference } from "@/features/theme/store";
 import { setThemePreference, useThemeStore } from "@/features/theme/store";
 import { fieldErrors } from "@/lib/forms";
+
+// Donations are optional and never gate anything; the card only renders
+// when a URL is configured (Ko-fi, BuyMeACoffee, etc.).
+const DONATION_URL = process.env.EXPO_PUBLIC_DONATION_URL;
 
 export default function ProfileScreen() {
   const { t } = useTranslation();
@@ -190,6 +195,22 @@ export default function ProfileScreen() {
         variant="ghost"
         disabled={saving}
       />
+
+      {DONATION_URL ? (
+        <Pressable
+          accessibilityRole="link"
+          onPress={() => Linking.openURL(DONATION_URL)}
+          className="mt-6 items-center rounded-card bg-sage-50 p-5 dark:bg-sage-900"
+          style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+        >
+          <Text className="font-nunito-bold text-base text-sage-800 dark:text-sage-100">
+            {t("profile.donateTitle")}
+          </Text>
+          <Text className="mt-1 text-center font-nunito text-sm text-ink-muted dark:text-ink-invmuted">
+            {t("profile.donateSubtitle")}
+          </Text>
+        </Pressable>
+      ) : null}
     </AuthLayout>
   );
 }

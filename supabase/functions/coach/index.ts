@@ -7,9 +7,9 @@
 import Anthropic from "npm:@anthropic-ai/sdk@0.72.1";
 import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2";
 
-// Cost/quality knob. claude-opus-4-8: $5/$25 per MTok.
-// Cheaper alternative if usage grows: claude-haiku-4-5 ($1/$5 per MTok).
-const MODEL = "claude-opus-4-8";
+// Cost/quality knob. claude-sonnet-5 balances quality and price for a demo.
+// Cheaper alternative if usage grows: claude-haiku-4-5.
+const MODEL = "claude-sonnet-5";
 const CHAT_MAX_TOKENS = 1024;
 const PLAN_MAX_TOKENS = 2048;
 // Hard limits so a runaway client can't rack up spend.
