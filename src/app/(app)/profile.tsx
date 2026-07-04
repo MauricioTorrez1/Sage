@@ -11,16 +11,25 @@ import { TextField } from "@/components/ui/TextField";
 import { useAuthStore } from "@/features/auth/store";
 import {
   activityOptions,
+  bodyTypeOptions,
   goalOptions,
   sexOptions,
+  trainingPlaceOptions,
 } from "@/features/profile/options";
 import {
   aboutYouSchema,
   bodySchema,
   goalSchema,
+  trainingSchema,
 } from "@/features/profile/schemas";
 import { updateProfile, useProfileStore } from "@/features/profile/store";
-import type { ActivityLevel, Goal, Sex } from "@/features/profile/types";
+import type {
+  ActivityLevel,
+  BodyType,
+  Goal,
+  Sex,
+  TrainingPlace,
+} from "@/features/profile/types";
 import type { ThemePreference } from "@/features/theme/store";
 import { setThemePreference, useThemeStore } from "@/features/theme/store";
 import { fieldErrors } from "@/lib/forms";
@@ -48,6 +57,28 @@ export default function ProfileScreen() {
     profile?.activity_level ?? null,
   );
   const [goal, setGoal] = useState<Goal | null>(profile?.goal ?? null);
+  const [bodyType, setBodyType] = useState<BodyType | null>(
+    profile?.body_type ?? null,
+  );
+  const [trainingMinutes, setTrainingMinutes] = useState(
+    profile?.training_minutes_per_day
+      ? String(profile.training_minutes_per_day)
+      : "",
+  );
+  const [trainingDays, setTrainingDays] = useState(
+    profile?.training_days_per_week
+      ? String(profile.training_days_per_week)
+      : "",
+  );
+  const [trainingPlace, setTrainingPlace] = useState<TrainingPlace | null>(
+    profile?.training_place ?? null,
+  );
+  const [injuries, setInjuries] = useState(profile?.injuries ?? "");
+  const [weeklyBudget, setWeeklyBudget] = useState(
+    profile?.weekly_food_budget_mxn
+      ? String(profile.weekly_food_budget_mxn)
+      : "",
+  );
   const [foodNotes, setFoodNotes] = useState(profile?.food_notes ?? "");
   const [supplements, setSupplements] = useState(profile?.supplements ?? "");
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -58,11 +89,29 @@ export default function ProfileScreen() {
     setFormError(null);
     const aboutYou = aboutYouSchema.safeParse({ displayName, age, sex });
     const body = bodySchema.safeParse({ heightCm, weightKg, activityLevel });
-    const goalParsed = goalSchema.safeParse({ goal, foodNotes, supplements });
-    if (!aboutYou.success || !body.success || !goalParsed.success) {
+    const training = trainingSchema.safeParse({
+      bodyType,
+      trainingMinutesPerDay: trainingMinutes,
+      trainingDaysPerWeek: trainingDays,
+      trainingPlace,
+      injuries,
+    });
+    const goalParsed = goalSchema.safeParse({
+      goal,
+      weeklyBudgetMxn: weeklyBudget,
+      foodNotes,
+      supplements,
+    });
+    if (
+      !aboutYou.success ||
+      !body.success ||
+      !training.success ||
+      !goalParsed.success
+    ) {
       setErrors({
         ...(aboutYou.success ? {} : fieldErrors(aboutYou.error)),
         ...(body.success ? {} : fieldErrors(body.error)),
+        ...(training.success ? {} : fieldErrors(training.error)),
         ...(goalParsed.success ? {} : fieldErrors(goalParsed.error)),
       });
       return;
@@ -74,6 +123,7 @@ export default function ProfileScreen() {
       await updateProfile(session.user.id, {
         ...aboutYou.data,
         ...body.data,
+        ...training.data,
         ...goalParsed.data,
       });
       router.back();
@@ -139,11 +189,68 @@ export default function ProfileScreen() {
         error={errors.activityLevel ? t(errors.activityLevel) : undefined}
       />
       <OptionGroup
+        label={t("onboarding.bodyType")}
+        options={bodyTypeOptions(t)}
+        value={bodyType}
+        onChange={setBodyType}
+        error={errors.bodyType ? t(errors.bodyType) : undefined}
+      />
+      <TextField
+        label={t("onboarding.trainingMinutes")}
+        placeholder={t("onboarding.trainingMinutesPlaceholder")}
+        value={trainingMinutes}
+        onChangeText={setTrainingMinutes}
+        error={
+          errors.trainingMinutesPerDay
+            ? t(errors.trainingMinutesPerDay)
+            : undefined
+        }
+        keyboardType="number-pad"
+        maxLength={3}
+      />
+      <TextField
+        label={t("onboarding.trainingDays")}
+        placeholder={t("onboarding.trainingDaysPlaceholder")}
+        value={trainingDays}
+        onChangeText={setTrainingDays}
+        error={
+          errors.trainingDaysPerWeek ? t(errors.trainingDaysPerWeek) : undefined
+        }
+        keyboardType="number-pad"
+        maxLength={1}
+      />
+      <OptionGroup
+        label={t("onboarding.trainingPlace")}
+        options={trainingPlaceOptions(t)}
+        value={trainingPlace}
+        onChange={setTrainingPlace}
+        error={errors.trainingPlace ? t(errors.trainingPlace) : undefined}
+      />
+      <TextField
+        label={t("onboarding.injuries")}
+        placeholder={t("onboarding.injuriesPlaceholder")}
+        value={injuries}
+        onChangeText={setInjuries}
+        error={errors.injuries ? t(errors.injuries) : undefined}
+        multiline
+        numberOfLines={2}
+        maxLength={500}
+      />
+      <OptionGroup
         label={t("onboarding.goal")}
         options={goalOptions(t)}
         value={goal}
         onChange={setGoal}
         error={errors.goal ? t(errors.goal) : undefined}
+      />
+      <TextField
+        label={t("onboarding.weeklyBudget")}
+        placeholder={t("onboarding.weeklyBudgetPlaceholder")}
+        value={weeklyBudget}
+        onChangeText={setWeeklyBudget}
+        error={errors.weeklyBudgetMxn ? t(errors.weeklyBudgetMxn) : undefined}
+        keyboardType="number-pad"
+        maxLength={5}
       />
       <TextField
         label={t("onboarding.foodNotes")}

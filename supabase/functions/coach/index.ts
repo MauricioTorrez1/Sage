@@ -2,7 +2,8 @@
 // Two modes, both JWT-verified and RLS-scoped to the calling user:
 //   { type: "chat", messages }  → chat reply; persists the turn to chat_messages
 //   { type: "daily_plan", date }→ generates today's meals+exercises checklist
-//                                 (structured outputs) and upserts daily_plans
+//                                 (structured outputs) and upserts daily_plans;
+//                                 completed items are kept, only the rest is rebuilt
 // Secrets required: ANTHROPIC_API_KEY (Edge Functions > Secrets).
 import Anthropic from "npm:@anthropic-ai/sdk@0.72.1";
 import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2";
@@ -34,6 +35,12 @@ type Profile = {
   goal: string | null;
   food_notes: string | null;
   supplements: string | null;
+  body_type: string | null;
+  training_minutes_per_day: number | null;
+  training_days_per_week: number | null;
+  training_place: string | null;
+  weekly_food_budget_mxn: number | null;
+  injuries: string | null;
 };
 
 // Keep in sync with src/features/plan/calculations.ts.
@@ -93,6 +100,15 @@ const ACTIVITY_LABEL: Record<string, string> = {
   active: "bastante actividad (5-6 veces/semana)",
   very_active: "actividad intensa diaria",
 };
+const BODY_LABEL: Record<string, string> = {
+  ectomorph: "delgado, le cuesta subir de peso (ectomorfo)",
+  mesomorph: "atlético, gana músculo con facilidad (mesomorfo)",
+  endomorph: "robusto, sube de peso con facilidad (endomorfo)",
+};
+const PLACE_LABEL: Record<string, string> = {
+  home: "en casa, con poco o nada de equipo",
+  gym: "en el gimnasio, con máquinas y pesas",
+};
 
 function profileFacts(profile: Profile) {
   const plan = calculatePlan(profile);
@@ -107,6 +123,15 @@ function profileFacts(profile: Profile) {
     profile.goal && `- Meta: ${GOAL_LABEL[profile.goal]}`,
     plan &&
     `- Plan diario calculado: ${plan.calories} kcal, ${plan.proteinG} g proteína, ${plan.fatG} g grasas, ${plan.carbsG} g carbohidratos`,
+    profile.body_type && `- Tipo de cuerpo: ${BODY_LABEL[profile.body_type]}`,
+    profile.training_minutes_per_day && profile.training_days_per_week &&
+    `- Tiempo para entrenar: ${profile.training_minutes_per_day} min/día, ${profile.training_days_per_week} días/semana`,
+    profile.training_place &&
+    `- Lugar de entrenamiento: ${PLACE_LABEL[profile.training_place]}`,
+    profile.weekly_food_budget_mxn &&
+    `- Presupuesto semanal de comida: $${profile.weekly_food_budget_mxn} MXN`,
+    profile.injuries &&
+    `- Lesiones o limitaciones físicas: ${profile.injuries}`,
     profile.food_notes &&
     `- Notas de comida (alergias, restricciones, gustos, presupuesto): ${profile.food_notes}`,
     profile.supplements &&
@@ -115,6 +140,7 @@ function profileFacts(profile: Profile) {
 }
 
 type DailyPlanItem = {
+  id: string;
   kind: "meal" | "exercise";
   title: string;
   detail: string;
@@ -183,20 +209,43 @@ Reglas:
 - No uses encabezados de markdown; texto plano con emojis ocasionales.`;
 }
 
-function dailyPlanSystemPrompt(profile: Profile) {
-  return `Eres Sage, coach de nutrición y entrenamiento. Genera el plan de HOY para esta persona, en español mexicano.
+function dailyPlanSystemPrompt(profile: Profile, kept: DailyPlanItem[]) {
+  let prompt =
+    `Eres Sage, coach de nutrición y entrenamiento. Genera el plan de HOY para esta persona, en español mexicano.
 
 Perfil:
 ${profileFacts(profile)}
 
 Reglas:
-- Respeta SIEMPRE las alergias y restricciones de sus notas de comida: jamás incluyas un alimento que las viole. Ajusta también a sus gustos y presupuesto.
+- Respeta SIEMPRE las alergias y restricciones de sus notas de comida: jamás incluyas un alimento que las viole. Ajusta también a sus gustos.
+- Si indicó presupuesto semanal, las comidas del día deben caber en ~1/7 de ese presupuesto.
 - Si toma suplementos, intégralos al plan donde tengan sentido (p. ej. batido de proteína post-entreno, creatina con una comida) contando sus kcal; no recomiendes suplementos nuevos.
 - 3 o 4 comidas cuyas kcal sumen aproximadamente su objetivo diario (±5%), con buena proteína según su meta.
 - Comida real, accesible y común en México; nada rebuscado ni caro.
-- 2 a 4 ejercicios/actividades realistas para su nivel de actividad; si es principiante, empieza suave.
+- 2 a 4 ejercicios/actividades realistas para su nivel; el entrenamiento completo debe caber en sus minutos disponibles y hacerse en su lugar de entrenamiento (si entrena en casa, sin máquinas de gimnasio).
+- Respeta SIEMPRE sus lesiones o limitaciones físicas: jamás incluyas ejercicios contraindicados; usa alternativas seguras que no carguen la zona afectada.
 - "title" corto (máx 6 palabras); "detail" con porciones o series/repeticiones concretas, en una línea.
 - Nunca planes extremos: nada de ayunos agresivos ni ejercicio excesivo.`;
+
+  if (kept.length > 0) {
+    const keptKcal = kept.reduce((sum, item) => sum + (item.kcal ?? 0), 0);
+    const lines = kept
+      .map(
+        (item) =>
+          `- ${item.kind === "meal" ? "Comida" : "Ejercicio"}: ${item.title} — ${item.detail}${item.kcal ? ` (${item.kcal} kcal)` : ""}`,
+      )
+      .join("\n");
+    prompt += `
+
+La persona YA completó hoy estos elementos (quedan fijos, NO los repitas ni los sustituyas):
+${lines}
+
+- Genera SOLO lo que falta del día: comidas nuevas para que el total (las completadas suman ${keptKcal} kcal) quede en 3 o 4 comidas y cerca de su objetivo diario, y ejercicios nuevos hasta completar 2 a 4 en total.
+- Si una categoría ya quedó completa, devuelve su array vacío.
+- Lo nuevo debe complementar lo ya hecho (no repitas el mismo grupo muscular ni la misma comida).`;
+  }
+
+  return prompt;
 }
 
 function photoAnalysisSystemPrompt(profile: Profile) {
@@ -344,10 +393,21 @@ async function handleDailyPlan(
     return json({ error: "bad_request" }, 400);
   }
 
+  // Completed items survive regeneration: only the unchecked part of the
+  // day is rebuilt. RLS scopes the read to the caller's own row.
+  const { data: existing } = await supabase
+    .from("daily_plans")
+    .select("items")
+    .eq("plan_date", date)
+    .maybeSingle();
+  const kept = ((existing?.items ?? []) as DailyPlanItem[]).filter(
+    (item) => item.done,
+  );
+
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: PLAN_MAX_TOKENS,
-    system: dailyPlanSystemPrompt(profile),
+    system: dailyPlanSystemPrompt(profile, kept),
     messages: [{ role: "user", content: `Genera mi plan del día ${date}.` }],
     output_config: {
       format: { type: "json_schema", schema: DAILY_PLAN_SCHEMA },
@@ -364,6 +424,7 @@ async function handleDailyPlan(
   };
 
   const items = [
+    ...kept.filter((item) => item.kind === "meal"),
     ...generated.meals.map((meal) => ({
       id: crypto.randomUUID(),
       kind: "meal",
@@ -372,6 +433,7 @@ async function handleDailyPlan(
       kcal: meal.kcal,
       done: false,
     })),
+    ...kept.filter((item) => item.kind === "exercise"),
     ...generated.exercises.map((exercise) => ({
       id: crypto.randomUUID(),
       kind: "exercise",
@@ -381,7 +443,7 @@ async function handleDailyPlan(
     })),
   ];
 
-  // Regenerating replaces the day's items (checkmarks included).
+  // Regenerating rebuilds only the unchecked part of the day.
   const { data: plan, error: upsertError } = await supabase
     .from("daily_plans")
     .upsert(

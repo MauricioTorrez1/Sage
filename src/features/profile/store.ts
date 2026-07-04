@@ -38,6 +38,12 @@ function toRow(input: OnboardingInput) {
     goal: input.goal,
     food_notes: input.foodNotes || null,
     supplements: input.supplements || null,
+    body_type: input.bodyType,
+    training_minutes_per_day: input.trainingMinutesPerDay,
+    training_days_per_week: input.trainingDaysPerWeek,
+    training_place: input.trainingPlace,
+    weekly_food_budget_mxn: input.weeklyBudgetMxn,
+    injuries: input.injuries || null,
   };
 }
 

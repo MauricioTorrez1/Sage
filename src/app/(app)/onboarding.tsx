@@ -15,19 +15,28 @@ import { TextField } from "@/components/ui/TextField";
 import { useAuthStore } from "@/features/auth/store";
 import {
   activityOptions,
+  bodyTypeOptions,
   goalOptions,
   sexOptions,
+  trainingPlaceOptions,
 } from "@/features/profile/options";
 import {
   aboutYouSchema,
   bodySchema,
   goalSchema,
+  trainingSchema,
 } from "@/features/profile/schemas";
 import { completeOnboarding } from "@/features/profile/store";
-import type { ActivityLevel, Goal, Sex } from "@/features/profile/types";
+import type {
+  ActivityLevel,
+  BodyType,
+  Goal,
+  Sex,
+  TrainingPlace,
+} from "@/features/profile/types";
 import { fieldErrors } from "@/lib/forms";
 
-const TOTAL_STEPS = 3;
+const TOTAL_STEPS = 4;
 
 export default function OnboardingScreen() {
   const { t } = useTranslation();
@@ -43,19 +52,38 @@ export default function OnboardingScreen() {
     null,
   );
   const [goal, setGoal] = useState<Goal | null>(null);
+  const [bodyType, setBodyType] = useState<BodyType | null>(null);
+  const [trainingMinutes, setTrainingMinutes] = useState("");
+  const [trainingDays, setTrainingDays] = useState("");
+  const [trainingPlace, setTrainingPlace] = useState<TrainingPlace | null>(
+    null,
+  );
+  const [injuries, setInjuries] = useState("");
+  const [weeklyBudget, setWeeklyBudget] = useState("");
   const [foodNotes, setFoodNotes] = useState("");
   const [supplements, setSupplements] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const stepValues = {
+    1: { schema: aboutYouSchema, values: { displayName, age, sex } },
+    2: { schema: bodySchema, values: { heightCm, weightKg, activityLevel } },
+    3: {
+      schema: trainingSchema,
+      values: {
+        bodyType,
+        trainingMinutesPerDay: trainingMinutes,
+        trainingDaysPerWeek: trainingDays,
+        trainingPlace,
+        injuries,
+      },
+    },
+  } as const;
+
   function handleNext() {
-    const schema = step === 1 ? aboutYouSchema : bodySchema;
-    const values =
-      step === 1
-        ? { displayName, age, sex }
-        : { heightCm, weightKg, activityLevel };
-    const parsed = schema.safeParse(values);
+    const current = stepValues[step as 1 | 2 | 3];
+    const parsed = current.schema.safeParse(current.values);
     if (!parsed.success) {
       setErrors(fieldErrors(parsed.error));
       return;
@@ -66,15 +94,21 @@ export default function OnboardingScreen() {
 
   async function handleFinish() {
     setFormError(null);
-    const parsedGoal = goalSchema.safeParse({ goal, foodNotes, supplements });
+    const parsedGoal = goalSchema.safeParse({
+      goal,
+      weeklyBudgetMxn: weeklyBudget,
+      foodNotes,
+      supplements,
+    });
     if (!parsedGoal.success) {
       setErrors(fieldErrors(parsedGoal.error));
       return;
     }
     setErrors({});
-    // Steps 1 and 2 were validated on the way in; re-parse to get typed values.
-    const aboutYou = aboutYouSchema.parse({ displayName, age, sex });
-    const body = bodySchema.parse({ heightCm, weightKg, activityLevel });
+    // Earlier steps were validated on the way in; re-parse for typed values.
+    const aboutYou = aboutYouSchema.parse(stepValues[1].values);
+    const body = bodySchema.parse(stepValues[2].values);
+    const training = trainingSchema.parse(stepValues[3].values);
     if (!session) return;
     setSaving(true);
     try {
@@ -83,6 +117,7 @@ export default function OnboardingScreen() {
       await completeOnboarding(session.user.id, {
         ...aboutYou,
         ...body,
+        ...training,
         ...parsedGoal.data,
       });
     } catch {
@@ -95,6 +130,7 @@ export default function OnboardingScreen() {
     1: { title: t("onboarding.step1Title"), subtitle: t("onboarding.step1Subtitle") },
     2: { title: t("onboarding.step2Title"), subtitle: t("onboarding.step2Subtitle") },
     3: { title: t("onboarding.step3Title"), subtitle: t("onboarding.step3Subtitle") },
+    4: { title: t("onboarding.step4Title"), subtitle: t("onboarding.step4Subtitle") },
   };
 
   return (
@@ -196,11 +232,79 @@ export default function OnboardingScreen() {
           {step === 3 && (
             <>
               <OptionGroup
+                label={t("onboarding.bodyType")}
+                options={bodyTypeOptions(t)}
+                value={bodyType}
+                onChange={setBodyType}
+                error={errors.bodyType ? t(errors.bodyType) : undefined}
+              />
+              <TextField
+                label={t("onboarding.trainingMinutes")}
+                placeholder={t("onboarding.trainingMinutesPlaceholder")}
+                value={trainingMinutes}
+                onChangeText={setTrainingMinutes}
+                error={
+                  errors.trainingMinutesPerDay
+                    ? t(errors.trainingMinutesPerDay)
+                    : undefined
+                }
+                keyboardType="number-pad"
+                maxLength={3}
+              />
+              <TextField
+                label={t("onboarding.trainingDays")}
+                placeholder={t("onboarding.trainingDaysPlaceholder")}
+                value={trainingDays}
+                onChangeText={setTrainingDays}
+                error={
+                  errors.trainingDaysPerWeek
+                    ? t(errors.trainingDaysPerWeek)
+                    : undefined
+                }
+                keyboardType="number-pad"
+                maxLength={1}
+              />
+              <OptionGroup
+                label={t("onboarding.trainingPlace")}
+                options={trainingPlaceOptions(t)}
+                value={trainingPlace}
+                onChange={setTrainingPlace}
+                error={
+                  errors.trainingPlace ? t(errors.trainingPlace) : undefined
+                }
+              />
+              <TextField
+                label={t("onboarding.injuries")}
+                placeholder={t("onboarding.injuriesPlaceholder")}
+                value={injuries}
+                onChangeText={setInjuries}
+                error={errors.injuries ? t(errors.injuries) : undefined}
+                multiline
+                numberOfLines={2}
+                maxLength={500}
+              />
+            </>
+          )}
+
+          {step === 4 && (
+            <>
+              <OptionGroup
                 label={t("onboarding.goal")}
                 options={goalOptions(t)}
                 value={goal}
                 onChange={setGoal}
                 error={errors.goal ? t(errors.goal) : undefined}
+              />
+              <TextField
+                label={t("onboarding.weeklyBudget")}
+                placeholder={t("onboarding.weeklyBudgetPlaceholder")}
+                value={weeklyBudget}
+                onChangeText={setWeeklyBudget}
+                error={
+                  errors.weeklyBudgetMxn ? t(errors.weeklyBudgetMxn) : undefined
+                }
+                keyboardType="number-pad"
+                maxLength={5}
               />
               <TextField
                 label={t("onboarding.foodNotes")}

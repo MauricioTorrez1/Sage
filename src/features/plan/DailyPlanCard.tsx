@@ -1,6 +1,12 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 
 import { Button } from "@/components/ui/Button";
 import type { DailyPlanItem } from "@/features/plan/daily-store";
@@ -11,6 +17,61 @@ import {
   useDailyPlanStore,
 } from "@/features/plan/daily-store";
 import { tokens } from "@/theme/tokens";
+
+const GENERATING_MESSAGES = [
+  "dailyPlan.generating1",
+  "dailyPlan.generating2",
+  "dailyPlan.generating3",
+] as const;
+
+/**
+ * Shown in place of the generate button while Sage builds the day. The API
+ * gives no real progress signal, so the bar eases toward 90% and the card
+ * swaps in the finished plan when the response lands.
+ */
+function GeneratingIndicator() {
+  const { t } = useTranslation();
+  const progress = useSharedValue(0);
+  const [messageIndex, setMessageIndex] = useState(0);
+
+  useEffect(() => {
+    progress.value = withTiming(0.9, {
+      duration: 18000,
+      easing: Easing.out(Easing.cubic),
+    });
+    const interval = setInterval(
+      () =>
+        setMessageIndex((index) => (index + 1) % GENERATING_MESSAGES.length),
+      4000,
+    );
+    return () => clearInterval(interval);
+  }, [progress]);
+
+  const fillStyle = useAnimatedStyle(() => ({
+    width: `${progress.value * 100}%`,
+  }));
+
+  return (
+    <View className="py-3">
+      <View className="h-2 overflow-hidden rounded-full bg-sage-100 dark:bg-sage-900">
+        {/* Reanimated views drop className on web; style the fill inline. */}
+        <Animated.View
+          style={[
+            {
+              height: "100%",
+              borderRadius: 9999,
+              backgroundColor: tokens.colors.sage[500],
+            },
+            fillStyle,
+          ]}
+        />
+      </View>
+      <Text className="mt-2 text-center font-nunito text-sm text-ink-muted dark:text-ink-invmuted">
+        {t(GENERATING_MESSAGES[messageIndex])}
+      </Text>
+    </View>
+  );
+}
 
 function ItemRow({ item }: { item: DailyPlanItem }) {
   return (
@@ -95,11 +156,11 @@ export function DailyPlanCard() {
           <Text className="mb-4 mt-2 font-nunito text-sm text-ink-muted dark:text-ink-invmuted">
             {t("dailyPlan.empty")}
           </Text>
-          <Button
-            title={t("dailyPlan.generate")}
-            onPress={generateTodayPlan}
-            loading={generating}
-          />
+          {generating ? (
+            <GeneratingIndicator />
+          ) : (
+            <Button title={t("dailyPlan.generate")} onPress={generateTodayPlan} />
+          )}
         </>
       ) : (
         <>
@@ -127,12 +188,30 @@ export function DailyPlanCard() {
             <ItemRow key={item.id} item={item} />
           ))}
 
-          <Button
-            title={t("dailyPlan.regenerate")}
-            onPress={generateTodayPlan}
-            variant="ghost"
-            loading={generating}
-          />
+          {generating ? (
+            <GeneratingIndicator />
+          ) : doneCount === total ? (
+            <Text className="mt-3 text-center font-nunito-semibold text-sm text-sage-700 dark:text-sage-300">
+              {t("dailyPlan.allDone")}
+            </Text>
+          ) : (
+            <>
+              <Button
+                title={
+                  doneCount > 0
+                    ? t("dailyPlan.regenerateRemaining")
+                    : t("dailyPlan.regenerate")
+                }
+                onPress={generateTodayPlan}
+                variant="ghost"
+              />
+              {doneCount > 0 ? (
+                <Text className="text-center font-nunito text-xs text-ink-soft dark:text-ink-invmuted">
+                  {t("dailyPlan.keptNote")}
+                </Text>
+              ) : null}
+            </>
+          )}
         </>
       )}
 

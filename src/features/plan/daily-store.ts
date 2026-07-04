@@ -77,8 +77,10 @@ export async function generateTodayPlan() {
 
 /** Optimistically toggles an item and persists the whole items array. */
 export async function toggleItem(itemId: string) {
-  const { plan } = useDailyPlanStore.getState();
-  if (!plan) return;
+  const { plan, generating } = useDailyPlanStore.getState();
+  // While regenerating, the server is reading the current checkmarks;
+  // toggling now would race with the merge it is about to write.
+  if (!plan || generating) return;
 
   const previous = plan.items;
   const items = plan.items.map((item) =>
