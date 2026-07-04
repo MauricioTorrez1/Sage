@@ -5,7 +5,9 @@ import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
+  Platform,
   Pressable,
   Text,
   View,
@@ -19,6 +21,7 @@ import type { ProgressPhoto } from "@/features/progress/store";
 import {
   addPhoto,
   analyzePhoto,
+  deletePhoto,
   loadPhotos,
   useProgressStore,
 } from "@/features/progress/store";
@@ -31,10 +34,31 @@ const PICKER_OPTIONS: ImagePicker.ImagePickerOptions = {
   quality: 0.5,
 };
 
+function confirmDeletePhoto(
+  t: (key: string) => string,
+  photo: ProgressPhoto,
+) {
+  // Alert is a no-op on web; fall back to the browser confirm dialog.
+  if (Platform.OS === "web") {
+    if (window.confirm(t("progress.deleteConfirm"))) deletePhoto(photo);
+    return;
+  }
+  Alert.alert(t("progress.deleteTitle"), t("progress.deleteConfirm"), [
+    { text: t("progress.deleteCancel"), style: "cancel" },
+    {
+      text: t("progress.delete"),
+      style: "destructive",
+      onPress: () => deletePhoto(photo),
+    },
+  ]);
+}
+
 function PhotoCard({ photo }: { photo: ProgressPhoto }) {
   const { t } = useTranslation();
   const analyzingId = useProgressStore((state) => state.analyzingId);
+  const deletingId = useProgressStore((state) => state.deletingId);
   const analyzing = analyzingId === photo.id;
+  const deleting = deletingId === photo.id;
 
   const date = new Date(photo.created_at).toLocaleDateString("es-MX", {
     day: "numeric",
@@ -52,6 +76,20 @@ function PhotoCard({ photo }: { photo: ProgressPhoto }) {
           transition={200}
         />
       ) : null}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t("progress.delete")}
+        onPress={() => confirmDeletePhoto(t, photo)}
+        disabled={deleting}
+        className="absolute right-3 top-3 h-9 w-9 items-center justify-center rounded-full bg-black/40"
+        style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+      >
+        {deleting ? (
+          <ActivityIndicator size="small" color="#FFFFFF" />
+        ) : (
+          <Text className="text-base text-white">🗑</Text>
+        )}
+      </Pressable>
       <View className="p-4">
         <Text className="font-nunito-semibold text-sm text-ink-muted dark:text-ink-invmuted">
           {date}

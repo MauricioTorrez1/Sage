@@ -19,6 +19,8 @@ type ProgressState = {
   uploading: boolean;
   /** id of the photo currently being analyzed by Sage. */
   analyzingId: string | null;
+  /** id of the photo currently being deleted. */
+  deletingId: string | null;
   errorKey: string | null;
 };
 
@@ -27,6 +29,7 @@ export const useProgressStore = create<ProgressState>(() => ({
   loaded: false,
   uploading: false,
   analyzingId: null,
+  deletingId: null,
   errorKey: null,
 }));
 
@@ -136,6 +139,39 @@ export async function analyzePhoto(photoId: string) {
   }));
 }
 
+/**
+ * Deletes a photo permanently: the file in Storage first, then its row.
+ * Storage-first is retry-safe — removing an already-deleted object succeeds,
+ * so a failed row delete can be retried without leaving orphan files.
+ */
+export async function deletePhoto(photo: ProgressPhoto) {
+  if (useProgressStore.getState().deletingId) return;
+  useProgressStore.setState({ deletingId: photo.id, errorKey: null });
+
+  try {
+    const { error: storageError } = await supabase.storage
+      .from(BUCKET)
+      .remove([photo.storage_path]);
+    if (storageError) throw storageError;
+
+    const { error: deleteError } = await supabase
+      .from("progress_photos")
+      .delete()
+      .eq("id", photo.id);
+    if (deleteError) throw deleteError;
+
+    useProgressStore.setState((state) => ({
+      photos: state.photos.filter((p) => p.id !== photo.id),
+      deletingId: null,
+    }));
+  } catch {
+    useProgressStore.setState({
+      deletingId: null,
+      errorKey: "progress.errors.delete",
+    });
+  }
+}
+
 /** Clears cached photos; call on sign-out. */
 export function resetProgress() {
   useProgressStore.setState({
@@ -143,6 +179,7 @@ export function resetProgress() {
     loaded: false,
     uploading: false,
     analyzingId: null,
+    deletingId: null,
     errorKey: null,
   });
 }

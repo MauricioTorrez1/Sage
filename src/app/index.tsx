@@ -4,11 +4,14 @@ import { Pressable, Text, View } from "react-native";
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AnimatedBlobs } from "@/components/ui/AnimatedBlobs";
+
 export default function WelcomeScreen() {
   const { t } = useTranslation();
 
   return (
     <SafeAreaView className="flex-1 bg-cream dark:bg-night">
+      <AnimatedBlobs />
       <View className="flex-1 items-center justify-center px-6">
         {/* Reanimated's Animated.* components drop className on web, so
             animations live on plain wrappers and classes on inner elements. */}

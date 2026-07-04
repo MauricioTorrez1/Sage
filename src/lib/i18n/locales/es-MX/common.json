@@ -157,6 +157,10 @@
     "empty": "Sube tu primera foto para tener tu punto de partida. Sage la analizará y luego irá comparando tu avance con cada foto nueva.",
     "analyzing": "Sage está analizando tu foto...",
     "analyze": "Analizar con Sage 🌿",
+    "delete": "Borrar foto",
+    "deleteTitle": "¿Borrar esta foto?",
+    "deleteConfirm": "Se elimina para siempre de tu cuenta, junto con su análisis. No se puede deshacer.",
+    "deleteCancel": "Cancelar",
     "cardTitle": "Tu progreso",
     "cardEmpty": "Sube tu primera foto: tu punto de partida.",
     "cardDue": "Ya pasó una semana — hora de una nueva foto.",
@@ -165,19 +169,26 @@
     "errors": {
       "permission": "Sage necesita permiso para usar tu cámara o galería. Actívalo en Ajustes.",
       "upload": "No se pudo subir la foto. Revisa tu conexión e intenta de nuevo.",
-      "analyze": "No se pudo analizar la foto. Tócala para intentar de nuevo."
+      "analyze": "No se pudo analizar la foto. Tócala para intentar de nuevo.",
+      "delete": "No se pudo borrar la foto. Intenta de nuevo."
     }
   },
   "profile": {
     "title": "Tu perfil",
     "subtitle": "Actualiza tus datos y tu plan se recalcula solito",
     "save": "Guardar cambios",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "theme": "Tema de la app",
+    "themeSystem": "Automático",
+    "themeSystemDesc": "Sigue el modo claro/oscuro de tu teléfono",
+    "themeLight": "Claro",
+    "themeDark": "Oscuro"
   },
   "home": {
     "greeting": "¡Hola! 🌿",
     "greetingName": "¡Hola, {{name}}! 🌿",
     "editProfile": "Editar perfil",
+    "toggleTheme": "Cambiar tema claro/oscuro",
     "coachTitle": "Habla con Sage",
     "coachSubtitle": "Dudas de comida, entrenamiento o tu plan — aquí ando.",
     "disclaimer": "Sage da orientación general de bienestar, no consejo médico. Consulta a un profesional de salud."

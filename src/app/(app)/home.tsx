@@ -1,14 +1,17 @@
 import { router } from "expo-router";
+import { useColorScheme } from "nativewind";
 import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AnimatedBlobs } from "@/components/ui/AnimatedBlobs";
 import { Button } from "@/components/ui/Button";
 import { calculatePlan } from "@/features/plan/calculations";
 import { DailyPlanCard } from "@/features/plan/DailyPlanCard";
 import { ProgressCard } from "@/features/progress/ProgressCard";
 import { useProfileStore } from "@/features/profile/store";
 import type { Goal } from "@/features/profile/types";
+import { setThemePreference } from "@/features/theme/store";
 import { supabase } from "@/lib/supabase";
 
 const GOAL_LABEL_KEY: Record<Goal, string> = {
@@ -32,11 +35,14 @@ function MacroTile({ label, grams }: { label: string; grams: number }) {
 
 export default function HomeScreen() {
   const { t } = useTranslation();
+  const { colorScheme } = useColorScheme();
   const profile = useProfileStore((state) => state.profile);
   const plan = profile ? calculatePlan(profile) : null;
+  const dark = colorScheme === "dark";
 
   return (
     <SafeAreaView className="flex-1 bg-cream dark:bg-night">
+      <AnimatedBlobs />
       <ScrollView
         className="flex-1"
         contentContainerClassName="flex-grow px-6 py-8"
@@ -47,6 +53,15 @@ export default function HomeScreen() {
               ? t("home.greetingName", { name: profile.display_name })
               : t("home.greeting")}
           </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("home.toggleTheme")}
+            onPress={() => setThemePreference(dark ? "light" : "dark")}
+            className="ml-3 h-10 w-10 items-center justify-center rounded-full bg-sage-100 dark:bg-sage-800"
+            style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+          >
+            <Text>{dark ? "☀️" : "🌙"}</Text>
+          </Pressable>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t("home.editProfile")}

@@ -20,12 +20,15 @@ import {
 } from "@/features/profile/schemas";
 import { updateProfile, useProfileStore } from "@/features/profile/store";
 import type { ActivityLevel, Goal, Sex } from "@/features/profile/types";
+import type { ThemePreference } from "@/features/theme/store";
+import { setThemePreference, useThemeStore } from "@/features/theme/store";
 import { fieldErrors } from "@/lib/forms";
 
 export default function ProfileScreen() {
   const { t } = useTranslation();
   const session = useAuthStore((state) => state.session);
   const profile = useProfileStore((state) => state.profile);
+  const themePreference = useThemeStore((state) => state.preference);
 
   const [displayName, setDisplayName] = useState(profile?.display_name ?? "");
   const [age, setAge] = useState(profile?.age ? String(profile.age) : "");
@@ -156,6 +159,22 @@ export default function ProfileScreen() {
         multiline
         numberOfLines={2}
         maxLength={500}
+      />
+
+      {/* Device-local; applies immediately, no save needed. */}
+      <OptionGroup<ThemePreference>
+        label={t("profile.theme")}
+        options={[
+          {
+            value: "system",
+            label: t("profile.themeSystem"),
+            description: t("profile.themeSystemDesc"),
+          },
+          { value: "light", label: t("profile.themeLight") },
+          { value: "dark", label: t("profile.themeDark") },
+        ]}
+        value={themePreference}
+        onChange={setThemePreference}
       />
 
       {formError ? (
