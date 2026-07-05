@@ -283,6 +283,8 @@
     "kcal": "kcal",
     "addToList": "Agregar a mi lista",
     "addNeedsList": "Genera tu lista de la semana para poder agregarlo.",
+    "scannedTag": "escaneado",
+    "removeItem": "Quitar de la lista",
     "close": "Cerrar",
     "cameraPermission": "Sage necesita permiso de cámara para escanear códigos. Actívalo para continuar.",
     "grantCamera": "Dar permiso de cámara",
@@ -293,7 +295,8 @@
     "photoMealTitle": "Comida registrada con foto",
     "photoTotal": "Total estimado: ~{{kcal}} kcal",
     "photoAdd": "Agregar a mi día",
-    "photoAdded": "Agregada a tu día ✓",
+    "photoAddedRecalc": "Agregada a tu día ✓ Ajusté tus comidas restantes.",
+    "photoRecalculating": "Sage está reajustando tu día...",
     "photoNeedsPlan": "Genera tu día en el inicio para poder registrarla.",
     "errors": {
       "generate": "No se pudo armar tu lista. Intenta de nuevo en un momento.",
@@ -309,12 +312,33 @@
     "eveningLabel": "En la noche 🌙",
     "eveningHint": "Registra cómo te fue antes de dormir.",
     "hourA11y": "Hora del recordatorio",
-    "earlier": "Una hora antes",
-    "later": "Una hora después",
+    "hourEarlier": "Una hora antes",
+    "hourLater": "Una hora después",
+    "minuteEarlier": "Cinco minutos antes",
+    "minuteLater": "Cinco minutos después",
     "permissionDenied": "Las notificaciones están apagadas para Sage. Actívalas en los Ajustes de tu teléfono para usar recordatorios.",
     "morningTitle": "¡Buenos días! 🌿",
     "morningBody": "Tu plan de hoy te espera en Sage. Desayuno, entrenamiento y todo lo demás.",
     "eveningTitle": "¿Cómo te fue hoy? 🌙",
     "eveningBody": "Date una vuelta por Sage y registra tus comidas y tu entrenamiento del día."
+  },
+  "review": {
+    "title": "Check-in de la semana 🌿",
+    "subtitle": "Sage revisa cómo te fue y te propone un ajuste amable para la próxima.",
+    "adherence": "Comidas {{mealsDone}}/{{mealsTotal}} · Ejercicios {{exDone}}/{{exTotal}}",
+    "feelingLabel": "¿Cómo te sentiste esta semana? (opcional)",
+    "feelingPlaceholder": "Con energía, con antojos, cansado, motivado...",
+    "includePhotos": "Incluir mis fotos de progreso",
+    "includePhotosHint": "Usa el último análisis de tus fotos para dar contexto. Nunca compara tu cuerpo con juicios.",
+    "generate": "Hacer mi check-in con Sage",
+    "update": "Actualizar mi check-in",
+    "redo": "Rehacer mi check-in",
+    "cancel": "Cancelar",
+    "generating1": "Sage está revisando tu semana... 🌿",
+    "generating2": "Sumando tus comidas y entrenamientos... 📊",
+    "generating3": "Preparando tu ajuste para la próxima semana... 💪",
+    "errors": {
+      "generate": "No se pudo armar tu check-in. Intenta de nuevo en un momento."
+    }
   }
 }

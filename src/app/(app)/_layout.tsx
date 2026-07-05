@@ -8,6 +8,7 @@ import { resetShopping } from "@/features/food/shopping-store";
 import { resetDailyPlan } from "@/features/plan/daily-store";
 import { resetStats } from "@/features/progress/stats";
 import { resetProgress } from "@/features/progress/store";
+import { resetWeeklyReview } from "@/features/progress/weekly-store";
 import {
   loadProfile,
   resetProfile,
@@ -34,6 +35,7 @@ export default function AppLayout() {
       resetProgress();
       resetStats();
       resetShopping();
+      resetWeeklyReview();
     };
   }, [userId]);
 

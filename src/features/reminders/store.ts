@@ -16,8 +16,11 @@ export type ReminderPrefs = {
   morningEnabled: boolean;
   /** 0-23, local time. */
   morningHour: number;
+  /** 0-59, local time. */
+  morningMinute: number;
   eveningEnabled: boolean;
   eveningHour: number;
+  eveningMinute: number;
 };
 
 const STORAGE_KEY = "sage.reminders";
@@ -25,8 +28,10 @@ const STORAGE_KEY = "sage.reminders";
 const DEFAULT_PREFS: ReminderPrefs = {
   morningEnabled: false,
   morningHour: 8,
+  morningMinute: 0,
   eveningEnabled: false,
   eveningHour: 20,
+  eveningMinute: 0,
 };
 
 export const useRemindersStore = create<ReminderPrefs>(() => DEFAULT_PREFS);
@@ -50,7 +55,12 @@ export async function initReminders() {
 
   try {
     const saved = await AsyncStorage.getItem(STORAGE_KEY);
-    if (saved) useRemindersStore.setState(JSON.parse(saved) as ReminderPrefs);
+    if (saved) {
+      // Merge over defaults so prefs saved before minutes existed (no
+      // *Minute field) load as :00 instead of NaN.
+      const parsed = JSON.parse(saved) as Partial<ReminderPrefs>;
+      useRemindersStore.setState({ ...DEFAULT_PREFS, ...parsed });
+    }
   } catch {
     // Unreadable storage: stay on defaults.
   }
@@ -75,7 +85,7 @@ async function reschedule(prefs: ReminderPrefs): Promise<boolean> {
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DAILY,
         hour: prefs.morningHour,
-        minute: 0,
+        minute: prefs.morningMinute,
       },
     });
   }
@@ -88,7 +98,7 @@ async function reschedule(prefs: ReminderPrefs): Promise<boolean> {
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DAILY,
         hour: prefs.eveningHour,
-        minute: 0,
+        minute: prefs.eveningMinute,
       },
     });
   }

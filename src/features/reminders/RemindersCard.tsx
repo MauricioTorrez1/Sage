@@ -10,42 +10,49 @@ type RowProps = {
   hint: string;
   enabled: boolean;
   hour: number;
+  minute: number;
   onToggle: (enabled: boolean) => void;
   onHourChange: (hour: number) => void;
+  onMinuteChange: (minute: number) => void;
 };
 
-function HourStepper({
-  hour,
-  onChange,
+/** Minutes step in 5s so a couple of taps span the whole hour. */
+const MINUTE_STEP = 5;
+
+function Stepper({
+  value,
+  decLabel,
+  incLabel,
+  onDec,
+  onInc,
 }: {
-  hour: number;
-  onChange: (hour: number) => void;
+  value: string;
+  decLabel: string;
+  incLabel: string;
+  onDec: () => void;
+  onInc: () => void;
 }) {
-  const { t } = useTranslation();
   return (
-    <View
-      accessibilityLabel={t("reminders.hourA11y")}
-      className="mt-3 flex-row items-center justify-center gap-5"
-    >
+    <View className="flex-row items-center gap-2">
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={t("reminders.earlier")}
-        onPress={() => onChange((hour + 23) % 24)}
-        className="h-10 w-10 items-center justify-center rounded-full bg-sage-100 dark:bg-sage-800"
+        accessibilityLabel={decLabel}
+        onPress={onDec}
+        className="h-9 w-9 items-center justify-center rounded-full bg-sage-100 dark:bg-sage-800"
         style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
       >
         <Text className="font-nunito-bold text-xl text-sage-800 dark:text-sage-100">
           −
         </Text>
       </Pressable>
-      <Text className="w-20 text-center font-nunito-bold text-xl text-ink dark:text-ink-inverse">
-        {String(hour).padStart(2, "0")}:00
+      <Text className="w-8 text-center font-nunito-bold text-xl text-ink dark:text-ink-inverse">
+        {value}
       </Text>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={t("reminders.later")}
-        onPress={() => onChange((hour + 1) % 24)}
-        className="h-10 w-10 items-center justify-center rounded-full bg-sage-100 dark:bg-sage-800"
+        accessibilityLabel={incLabel}
+        onPress={onInc}
+        className="h-9 w-9 items-center justify-center rounded-full bg-sage-100 dark:bg-sage-800"
         style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
       >
         <Text className="font-nunito-bold text-xl text-sage-800 dark:text-sage-100">
@@ -56,13 +63,53 @@ function HourStepper({
   );
 }
 
+function TimePicker({
+  hour,
+  minute,
+  onHourChange,
+  onMinuteChange,
+}: {
+  hour: number;
+  minute: number;
+  onHourChange: (hour: number) => void;
+  onMinuteChange: (minute: number) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <View
+      accessibilityLabel={t("reminders.hourA11y")}
+      className="mt-3 flex-row items-center justify-center gap-3"
+    >
+      <Stepper
+        value={String(hour).padStart(2, "0")}
+        decLabel={t("reminders.hourEarlier")}
+        incLabel={t("reminders.hourLater")}
+        onDec={() => onHourChange((hour + 23) % 24)}
+        onInc={() => onHourChange((hour + 1) % 24)}
+      />
+      <Text className="font-nunito-bold text-xl text-ink dark:text-ink-inverse">
+        :
+      </Text>
+      <Stepper
+        value={String(minute).padStart(2, "0")}
+        decLabel={t("reminders.minuteEarlier")}
+        incLabel={t("reminders.minuteLater")}
+        onDec={() => onMinuteChange((minute + 60 - MINUTE_STEP) % 60)}
+        onInc={() => onMinuteChange((minute + MINUTE_STEP) % 60)}
+      />
+    </View>
+  );
+}
+
 function ReminderRow({
   label,
   hint,
   enabled,
   hour,
+  minute,
   onToggle,
   onHourChange,
+  onMinuteChange,
 }: RowProps) {
   return (
     <View className="rounded-button border border-sage-200 bg-white px-4 py-3.5 dark:border-sage-800 dark:bg-nightSurface">
@@ -77,7 +124,14 @@ function ReminderRow({
         </View>
         <Switch value={enabled} onValueChange={onToggle} />
       </View>
-      {enabled ? <HourStepper hour={hour} onChange={onHourChange} /> : null}
+      {enabled ? (
+        <TimePicker
+          hour={hour}
+          minute={minute}
+          onHourChange={onHourChange}
+          onMinuteChange={onMinuteChange}
+        />
+      ) : null}
     </View>
   );
 }
@@ -109,16 +163,20 @@ export function RemindersCard() {
           hint={t("reminders.morningHint")}
           enabled={prefs.morningEnabled}
           hour={prefs.morningHour}
+          minute={prefs.morningMinute}
           onToggle={(morningEnabled) => update({ morningEnabled })}
           onHourChange={(morningHour) => update({ morningHour })}
+          onMinuteChange={(morningMinute) => update({ morningMinute })}
         />
         <ReminderRow
           label={t("reminders.eveningLabel")}
           hint={t("reminders.eveningHint")}
           enabled={prefs.eveningEnabled}
           hour={prefs.eveningHour}
+          minute={prefs.eveningMinute}
           onToggle={(eveningEnabled) => update({ eveningEnabled })}
           onHourChange={(eveningHour) => update({ eveningHour })}
+          onMinuteChange={(eveningMinute) => update({ eveningMinute })}
         />
       </View>
       {denied ? (

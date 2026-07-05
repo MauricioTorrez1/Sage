@@ -5,10 +5,11 @@ import { ActivityIndicator, Text, View } from "react-native";
 
 import { Button } from "@/components/ui/Button";
 import {
-  addMealFromPhoto,
   loadTodayPlan,
+  logFoodPhoto,
   useDailyPlanStore,
 } from "@/features/plan/daily-store";
+import { invokeErrorInfo } from "@/lib/functions";
 import { supabase } from "@/lib/supabase";
 import { tokens } from "@/theme/tokens";
 
@@ -32,9 +33,11 @@ export function FoodPhotoCard() {
   const { t } = useTranslation();
   const plan = useDailyPlanStore((state) => state.plan);
   const [analyzing, setAnalyzing] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [meal, setMeal] = useState<FoodEstimate | null>(null);
   const [added, setAdded] = useState(false);
   const [errorKey, setErrorKey] = useState<string | null>(null);
+  const [errorHours, setErrorHours] = useState<number | null>(null);
 
   useEffect(() => {
     loadTodayPlan();
@@ -43,6 +46,7 @@ export function FoodPhotoCard() {
   async function pick(fromCamera: boolean) {
     if (analyzing) return;
     setErrorKey(null);
+    setErrorHours(null);
 
     const permission = fromCamera
       ? await ImagePicker.requestCameraPermissionsAsync()
@@ -70,20 +74,30 @@ export function FoodPhotoCard() {
     setAnalyzing(false);
 
     if (error || !data?.meal) {
-      setErrorKey("food.errors.photo");
+      // 3/day scan limit returns a structured { error: "limit", hours_left }.
+      const info = error ? await invokeErrorInfo(error) : null;
+      if (info?.code === "limit") {
+        setErrorHours(info.hoursLeft ?? 0);
+        setErrorKey("coach.errors.limit");
+      } else {
+        setErrorKey("food.errors.photo");
+      }
       return;
     }
     setMeal(data.meal as FoodEstimate);
   }
 
   async function handleAdd() {
-    if (!meal || meal.foods.length === 0) return;
+    if (!meal || meal.foods.length === 0 || adding) return;
     const title =
       meal.foods.length === 1 ? meal.foods[0].name : t("food.photoMealTitle");
     const detail = meal.foods
       .map((food) => `${food.name} ~${food.grams} g`)
       .join(", ");
-    const ok = await addMealFromPhoto(title, detail, meal.total_kcal);
+    setAdding(true);
+    setErrorKey(null);
+    const ok = await logFoodPhoto(title, detail, meal.total_kcal);
+    setAdding(false);
     if (ok) setAdded(true);
     else setErrorKey("food.errors.photoAdd");
   }
@@ -148,10 +162,26 @@ export function FoodPhotoCard() {
           {meal.foods.length > 0 ? (
             added ? (
               <Text className="mt-3 text-center font-nunito-semibold text-sm text-sage-700 dark:text-sage-300">
-                {t("food.photoAdded")}
+                {t("food.photoAddedRecalc")}
               </Text>
             ) : plan ? (
-              <Button title={t("food.photoAdd")} onPress={handleAdd} variant="ghost" />
+              adding ? (
+                <View className="mt-3 flex-row items-center justify-center gap-2 py-2">
+                  <ActivityIndicator
+                    size="small"
+                    color={tokens.colors.sage[500]}
+                  />
+                  <Text className="font-nunito text-sm text-ink-muted dark:text-ink-invmuted">
+                    {t("food.photoRecalculating")}
+                  </Text>
+                </View>
+              ) : (
+                <Button
+                  title={t("food.photoAdd")}
+                  onPress={handleAdd}
+                  variant="ghost"
+                />
+              )
             ) : (
               <Text className="mt-3 font-nunito text-xs text-ink-soft dark:text-ink-invmuted">
                 {t("food.photoNeedsPlan")}
@@ -163,7 +193,7 @@ export function FoodPhotoCard() {
 
       {errorKey ? (
         <Text className="mt-2 font-nunito text-sm text-terracotta-600 dark:text-terracotta-300">
-          {t(errorKey)}
+          {t(errorKey, { hours: errorHours ?? 0 })}
         </Text>
       ) : null}
     </View>

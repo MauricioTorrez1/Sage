@@ -1,9 +1,17 @@
 // Sage coach — Supabase Edge Function (Deno).
-// Two modes, both JWT-verified and RLS-scoped to the calling user:
-//   { type: "chat", messages }  → chat reply; persists the turn to chat_messages
-//   { type: "daily_plan", date }→ generates today's meals+exercises checklist
-//                                 (structured outputs) and upserts daily_plans;
-//                                 completed items are kept, only the rest is rebuilt
+// Modes, all JWT-verified and RLS-scoped to the calling user:
+//   { type: "chat", messages }   → chat reply; persists the turn to chat_messages
+//   { type: "daily_plan", date }  → generates today's meals+exercises checklist
+//                                   (structured outputs) and upserts daily_plans;
+//                                   completed items are kept, only the rest is rebuilt
+//   { type: "shopping_list, week_start } → weekly list; keeps checked + scanned
+//                                   items, regenerates the rest within budget
+//   { type: "food_photo", image } → ephemeral food-photo estimate (3/day)
+//   { type: "log_food", date, meal } → logs an eaten meal and recalculates the
+//                                   day's remaining meals around it
+//   { type: "photo_analysis", photo_id } → progress-photo feedback
+//   { type: "weekly_review", week_start } → weekly check-in with adherence,
+//                                   RAG, a safe plan tweak, body-image guardrails
 // Secrets required: ANTHROPIC_API_KEY (Edge Functions > Secrets).
 import Anthropic from "npm:@anthropic-ai/sdk@0.72.1";
 import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2";
@@ -352,6 +360,59 @@ ${lines}
   return prompt;
 }
 
+/**
+ * Meal-only regeneration after the user logs an off-plan meal (e.g. from a
+ * food photo). The eaten meals are fixed; Sage refills only what's left of
+ * the daily calorie budget so the logged meal is effectively "discounted".
+ */
+function mealRecalcSystemPrompt(
+  profile: Profile,
+  fixedMeals: DailyPlanItem[],
+  recentMeals: string[],
+) {
+  const plan = calculatePlan(profile);
+  const target = plan ? plan.calories : null;
+  const fixedKcal = fixedMeals.reduce((sum, m) => sum + (m.kcal ?? 0), 0);
+  const remaining = target !== null ? target - fixedKcal : null;
+
+  const fixedLines = fixedMeals
+    .map(
+      (m) => `- ${m.title} — ${m.detail}${m.kcal ? ` (${m.kcal} kcal)` : ""}`,
+    )
+    .join("\n");
+
+  let prompt =
+    `Eres Sage, coach de nutrición. La persona ya comió ciertos platillos hoy y necesitas RECALCULAR solo las comidas que le faltan para cerrar bien su día, en español mexicano.
+
+Perfil:
+${profileFacts(profile)}
+
+Comidas que la persona YA comió hoy (quedan FIJAS, NO las repitas ni las modifiques; suman ${fixedKcal} kcal):
+${fixedLines || "- (ninguna aún)"}
+
+Reglas:
+- Respeta SIEMPRE las alergias y restricciones de sus notas de comida.
+- ${
+      remaining !== null
+        ? `Le quedan aproximadamente ${remaining} kcal para llegar a su objetivo diario de ${target} kcal. Genera las comidas que faltan para que el TOTAL del día (lo ya comido + lo nuevo) quede cerca de ese objetivo (±5%), en 3 o 4 comidas en total contando las fijas.`
+        : "Genera 1 a 3 comidas razonables que complementen lo ya comido para un día equilibrado."
+    }
+- Si lo que ya comió alcanza o supera su objetivo del día, devuelve meals como arreglo vacío (no fuerces más comida).
+- Prioriza buena proteína según su meta y comida real, accesible y común en México.
+- No repitas el estilo ni la proteína principal de lo que ya comió; que lo nuevo complemente, no duplique.
+- "title" corto (máx 6 palabras); "detail" con porciones concretas en una línea; "kcal" entero por comida.
+- Nunca planes extremos ni mensajes con culpa.`;
+
+  if (recentMeals.length > 0) {
+    prompt += `
+
+Platillos de sus días recientes (evita repetirlos; varía):
+${recentMeals.map((title) => `- ${title}`).join("\n")}`;
+  }
+
+  return prompt;
+}
+
 function photoAnalysisSystemPrompt(profile: Profile) {
   return `Eres Sage 🌿, coach de nutrición y entrenamiento. Evalúa el progreso físico de la persona a partir de sus fotos, en español mexicano cálido.
 
@@ -366,7 +427,15 @@ Reglas:
 - Nada de diagnósticos médicos ni porcentajes de grasa exactos. Si algo requiere atención médica, recomiéndalo con calidez.`;
 }
 
-function shoppingListSystemPrompt(profile: Profile, recentMeals: string[]) {
+function shoppingListSystemPrompt(
+  profile: Profile,
+  recentMeals: string[],
+  kept: ShoppingItem[],
+) {
+  const keptMxn = kept.reduce((sum, item) => sum + (item.est_mxn ?? 0), 0);
+  const budget = profile.weekly_food_budget_mxn;
+  const remaining = budget !== null ? Math.max(0, budget - keptMxn) : null;
+
   let prompt =
     `Eres Sage, coach de nutrición. Genera la lista del súper para UNA semana de esta persona, en español mexicano.
 
@@ -379,12 +448,22 @@ Reglas:
 - "est_mxn" es el precio estimado del artículo en pesos mexicanos (entero).
 - Respeta SIEMPRE las alergias y restricciones de sus notas de comida.
 - ${
-      profile.weekly_food_budget_mxn
-        ? `La suma de est_mxn debe caber en su presupuesto semanal de $${profile.weekly_food_budget_mxn} MXN (idealmente ~90% para dejar margen).`
+      remaining !== null
+        ? `La persona YA tiene apartados $${keptMxn} MXN de su presupuesto semanal de $${budget} MXN. La suma de est_mxn de los artículos NUEVOS que generes debe caber en los ~$${remaining} MXN restantes (idealmente ~90% para dejar margen).`
         : "Sin presupuesto indicado: mantén la lista económica y realista."
     }
 - 12 a 20 artículos: proteínas, verduras, frutas, granos y básicos que cubran la semana según su plan calculado.
 - "title" corto (máx 4 palabras).`;
+
+  if (kept.length > 0) {
+    const lines = kept
+      .map((item) => `- ${item.title} (${item.quantity})`)
+      .join("\n");
+    prompt += `
+
+La persona YA tiene estos artículos en su lista (NO los repitas ni sugieras equivalentes; genera solo lo que falta para complementarlos):
+${lines}`;
+  }
 
   if (recentMeals.length > 0) {
     prompt += `
@@ -414,6 +493,27 @@ const SHOPPING_LIST_SCHEMA = {
     },
   },
   required: ["items"],
+  additionalProperties: false,
+} as const;
+
+const MEALS_ONLY_SCHEMA = {
+  type: "object",
+  properties: {
+    meals: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          detail: { type: "string" },
+          kcal: { type: "integer" },
+        },
+        required: ["title", "detail", "kcal"],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["meals"],
   additionalProperties: false,
 } as const;
 
@@ -483,13 +583,15 @@ function extractText(response: Anthropic.Message) {
     .join("");
 }
 
+type GenerationKind = "daily_plan" | "shopping_list" | "food_photo";
+
 /**
  * Hours until the user may generate `kind` again, or null if still allowed.
  * Counts ai_generations rows in the rolling window (RLS scopes to caller).
  */
 async function generationHoursLeft(
   supabase: SupabaseClient,
-  kind: "daily_plan" | "shopping_list",
+  kind: GenerationKind,
 ) {
   const since = new Date(Date.now() - LIMIT_WINDOW_MS).toISOString();
   const { data } = await supabase
@@ -510,7 +612,7 @@ async function generationHoursLeft(
 async function recordGeneration(
   supabase: SupabaseClient,
   userId: string,
-  kind: "daily_plan" | "shopping_list",
+  kind: GenerationKind,
 ) {
   const { error } = await supabase
     .from("ai_generations")
@@ -606,21 +708,7 @@ async function handleDailyPlan(
 
   // Meal titles from the last week feed the prompt so days don't repeat
   // the same dishes (RLS scopes the read to the caller's own rows).
-  const { data: recentPlans } = await supabase
-    .from("daily_plans")
-    .select("items")
-    .lt("plan_date", date)
-    .order("plan_date", { ascending: false })
-    .limit(7);
-  const recentMeals = [
-    ...new Set(
-      (recentPlans ?? []).flatMap((row) =>
-        ((row.items ?? []) as DailyPlanItem[])
-          .filter((item) => item.kind === "meal")
-          .map((item) => item.title),
-      ),
-    ),
-  ];
+  const recentMeals = await recentMealTitles(supabase, date);
 
   const response = await anthropic.messages.create({
     model: MODEL,
@@ -715,9 +803,13 @@ const FOOD_MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp"];
 /**
  * Food photo → structured estimate. EPHEMERAL by design: the image lives
  * only in this request — it is never written to Storage or the database.
+ * Capped at 3 scans/day (server clock) like the other AI generations, so a
+ * misread photo can't be re-run indefinitely on our dime.
  */
 async function handleFoodPhoto(
+  supabase: SupabaseClient,
   anthropic: Anthropic,
+  userId: string,
   image: unknown,
   mediaType: unknown,
 ) {
@@ -729,6 +821,11 @@ async function handleFoodPhoto(
     !FOOD_MEDIA_TYPES.includes(mediaType)
   ) {
     return json({ error: "bad_request" }, 400);
+  }
+
+  const hoursLeft = await generationHoursLeft(supabase, "food_photo");
+  if (hoursLeft !== null) {
+    return json({ error: "limit", hours_left: hoursLeft }, 429);
   }
 
   // Sonnet (not Haiku): food ID from home photos needs the better eyes —
@@ -776,7 +873,156 @@ Reglas:
     return json({ error: "internal" }, 500);
   }
 
+  // Only a scan that actually produced an estimate counts against the limit.
+  await recordGeneration(supabase, userId, "food_photo");
   return json({ meal: JSON.parse(extractText(response)) });
+}
+
+/** Meal titles from the last week (excluding `date`), newest plans first. */
+async function recentMealTitles(
+  supabase: SupabaseClient,
+  date: string,
+): Promise<string[]> {
+  const { data: recentPlans } = await supabase
+    .from("daily_plans")
+    .select("items")
+    .lt("plan_date", date)
+    .order("plan_date", { ascending: false })
+    .limit(7);
+  return [
+    ...new Set(
+      (recentPlans ?? []).flatMap((row) =>
+        ((row.items ?? []) as DailyPlanItem[])
+          .filter((item) => item.kind === "meal")
+          .map((item) => item.title),
+      ),
+    ),
+  ];
+}
+
+/**
+ * Logs an off-plan meal the user actually ate (e.g. from a food photo) into
+ * today's plan and recalculates the day: the eaten meal is added as done,
+ * and the still-unchecked meals are rebuilt to fit whatever calories remain.
+ * Exercises and already-completed meals are left untouched. If the recalc
+ * model call fails, the meal is still appended so the log is never lost.
+ */
+async function handleLogFood(
+  supabase: SupabaseClient,
+  anthropic: Anthropic,
+  userId: string,
+  profile: Profile,
+  date: unknown,
+  meal: unknown,
+) {
+  if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return json({ error: "bad_request" }, 400);
+  }
+  const m = meal as { title?: unknown; detail?: unknown; kcal?: unknown };
+  if (
+    !m ||
+    typeof m.title !== "string" ||
+    m.title.length === 0 ||
+    m.title.length > 120 ||
+    typeof m.detail !== "string" ||
+    m.detail.length > 400 ||
+    typeof m.kcal !== "number" ||
+    !Number.isFinite(m.kcal) ||
+    m.kcal < 0 ||
+    m.kcal > 10000
+  ) {
+    return json({ error: "bad_request" }, 400);
+  }
+
+  const { data: existing } = await supabase
+    .from("daily_plans")
+    .select("id, items")
+    .eq("plan_date", date)
+    .maybeSingle();
+  if (!existing) {
+    return json({ error: "no_plan" }, 409);
+  }
+  const items = (existing.items ?? []) as DailyPlanItem[];
+
+  const loggedMeal: DailyPlanItem = {
+    id: crypto.randomUUID(),
+    kind: "meal",
+    title: m.title,
+    detail: m.detail,
+    kcal: Math.round(m.kcal),
+    done: true, // photographed on the plate — already eaten
+  };
+
+  const exercises = items.filter((item) => item.kind === "exercise");
+  const doneMeals = items.filter(
+    (item) => item.kind === "meal" && item.done,
+  );
+  const fixedMeals = [...doneMeals, loggedMeal];
+
+  // Rebuild only the still-unchecked meals to fit the remaining calories.
+  let recalcMeals: DailyPlanItem[] = [];
+  let recalcOk = false;
+  try {
+    const recentMeals = await recentMealTitles(supabase, date);
+    const response = await anthropic.messages.create({
+      model: MODEL,
+      max_tokens: PLAN_MAX_TOKENS,
+      thinking: THINKING,
+      system: mealRecalcSystemPrompt(profile, fixedMeals, recentMeals),
+      messages: [
+        { role: "user", content: "Recalcula las comidas que me faltan hoy." },
+      ],
+      output_config: {
+        format: { type: "json_schema", schema: MEALS_ONLY_SCHEMA },
+      },
+    });
+    if (
+      response.stop_reason !== "refusal" &&
+      response.stop_reason !== "max_tokens"
+    ) {
+      const generated = JSON.parse(extractText(response)) as {
+        meals: { title: string; detail: string; kcal: number }[];
+      };
+      recalcMeals = generated.meals.map((gen) => ({
+        id: crypto.randomUUID(),
+        kind: "meal" as const,
+        title: gen.title,
+        detail: gen.detail,
+        kcal: gen.kcal,
+        done: false,
+      }));
+      recalcOk = true;
+    }
+  } catch (error) {
+    console.error("meal recalc failed, appending only:", error);
+  }
+
+  // When the recalc succeeds we swap the unchecked meals for the new ones;
+  // otherwise we keep them so a model hiccup doesn't wipe the day's plan.
+  const keptUncheckedMeals = recalcOk
+    ? []
+    : items.filter((item) => item.kind === "meal" && !item.done);
+
+  const nextItems: DailyPlanItem[] = [
+    ...doneMeals,
+    loggedMeal,
+    ...keptUncheckedMeals,
+    ...recalcMeals,
+    ...exercises,
+  ];
+
+  const { data: plan, error: updateError } = await supabase
+    .from("daily_plans")
+    .update({ items: nextItems })
+    .eq("id", existing.id)
+    .select()
+    .single();
+  if (updateError || !plan) {
+    console.error("log food update error:", updateError);
+    return json({ error: "internal" }, 500);
+  }
+
+  return json({ plan, recalculated: recalcOk });
 }
 
 type ShoppingItem = {
@@ -786,6 +1032,15 @@ type ShoppingItem = {
   est_mxn: number;
   done: boolean;
 };
+
+/**
+ * Items the user added by hand (e.g. a scanned product) carry a "manual-"
+ * id; AI-generated items get a UUID. Manual items survive regeneration and
+ * are the only ones the client lets the user delete.
+ */
+function isManualItem(id: string) {
+  return typeof id === "string" && id.startsWith("manual-");
+}
 
 async function handleShoppingList(
   supabase: SupabaseClient,
@@ -802,6 +1057,18 @@ async function handleShoppingList(
   if (hoursLeft !== null) {
     return json({ error: "limit", hours_left: hoursLeft }, 429);
   }
+
+  // Regenerating rebuilds only the not-yet-checked AI items. Checked items
+  // (already bought) and scanned products the user added by hand survive
+  // verbatim; only the rest is replaced, fitted to the leftover budget.
+  const { data: existing } = await supabase
+    .from("shopping_lists")
+    .select("items")
+    .eq("week_start", weekStart)
+    .maybeSingle();
+  const kept = ((existing?.items ?? []) as ShoppingItem[]).filter(
+    (item) => item.done || isManualItem(item.id),
+  );
 
   // Recent meals keep the list aligned with what the plan actually serves.
   const { data: recentPlans } = await supabase
@@ -823,7 +1090,7 @@ async function handleShoppingList(
     model: MODEL,
     max_tokens: PLAN_MAX_TOKENS,
     thinking: THINKING,
-    system: shoppingListSystemPrompt(profile, recentMeals),
+    system: shoppingListSystemPrompt(profile, recentMeals, kept),
     messages: [
       {
         role: "user",
@@ -847,25 +1114,16 @@ async function handleShoppingList(
     items: { title: string; quantity: string; est_mxn: number }[];
   };
 
-  // Regenerating keeps the checkmarks of items that survived by title.
-  const { data: existing } = await supabase
-    .from("shopping_lists")
-    .select("items")
-    .eq("week_start", weekStart)
-    .maybeSingle();
-  const doneTitles = new Set(
-    ((existing?.items ?? []) as ShoppingItem[])
-      .filter((item) => item.done)
-      .map((item) => item.title.toLowerCase()),
-  );
-
-  const items: ShoppingItem[] = generated.items.map((item) => ({
-    id: crypto.randomUUID(),
-    title: item.title,
-    quantity: item.quantity,
-    est_mxn: item.est_mxn,
-    done: doneTitles.has(item.title.toLowerCase()),
-  }));
+  const items: ShoppingItem[] = [
+    ...kept,
+    ...generated.items.map((item) => ({
+      id: crypto.randomUUID(),
+      title: item.title,
+      quantity: item.quantity,
+      est_mxn: item.est_mxn,
+      done: false,
+    })),
+  ];
 
   const { data: list, error: upsertError } = await supabase
     .from("shopping_lists")
@@ -995,6 +1253,193 @@ async function handlePhotoAnalysis(
   return json({ analysis });
 }
 
+type WeekAdherence = {
+  days: number;
+  mealsDone: number;
+  mealsTotal: number;
+  exercisesDone: number;
+  exercisesTotal: number;
+};
+
+function weeklyReviewSystemPrompt(
+  profile: Profile,
+  adherence: WeekAdherence,
+  weightNote: string,
+  photoNote: string,
+  knowledge: string,
+) {
+  const mealPct = adherence.mealsTotal > 0
+    ? Math.round((adherence.mealsDone / adherence.mealsTotal) * 100)
+    : 0;
+  const exPct = adherence.exercisesTotal > 0
+    ? Math.round((adherence.exercisesDone / adherence.exercisesTotal) * 100)
+    : 0;
+
+  return `Eres Sage 🌿, coach de nutrición y entrenamiento. Haz el resumen semanal (check-in) de la persona en español mexicano cálido y cercano. Tu filosofía: constancia amable, sin culpas, un paso a la vez.
+
+Perfil:
+${profileFacts(profile)}
+
+Adherencia de esta semana:
+- Días con plan: ${adherence.days}
+- Comidas completadas: ${adherence.mealsDone} de ${adherence.mealsTotal} (${mealPct}%)
+- Ejercicios completados: ${adherence.exercisesDone} de ${adherence.exercisesTotal} (${exPct}%)${weightNote}${photoNote}
+
+Reglas:
+- 4 a 7 oraciones, texto plano, sin encabezados de markdown, con emojis ocasionales.
+- Empieza reconociendo lo que SÍ logró (por poco que sea); luego señala con cariño 1 o 2 cosas para mejorar.
+- Propón UN solo ajuste concreto, pequeño y seguro para la próxima semana, alineado a su meta. Jamás sugieras déficits agresivos, ayunos, ni más ejercicio del que su tiempo permite.
+- GUARDARRAÍLES de imagen corporal: no juzgues su cuerpo ni hables de "verse bien o mal". Enfócate en hábitos, energía, fuerza, descanso y cómo se siente. Si notas señales de una relación dañina con la comida o el ejercicio (obsesión, castigo, culpa), prioriza su bienestar sobre la meta y sugiere con calidez apoyo profesional.
+- No eres profesional de la salud: ante temas médicos, embarazo o trastornos alimenticios, recomienda con calidez consultar a un profesional.
+- Si hay "Base de conocimiento" abajo, apóyate en ella y cierra con una línea "Fuentes: " citando el título de las fuentes que SÍ usaste; si no la usaste, no agregues esa línea.${knowledge}`;
+}
+
+/**
+ * Weekly check-in: computes the week's adherence from daily_plans, optionally
+ * folds in recent progress photos, retrieves RAG knowledge, and asks Sage for
+ * warm feedback plus one safe plan tweak. Persists to weekly_reviews.
+ */
+async function handleWeeklyReview(
+  supabase: SupabaseClient,
+  anthropic: Anthropic,
+  userId: string,
+  profile: Profile,
+  weekStart: unknown,
+  feeling: unknown,
+  includePhotos: unknown,
+) {
+  if (typeof weekStart !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+    return json({ error: "bad_request" }, 400);
+  }
+  const feelingText =
+    typeof feeling === "string" ? feeling.slice(0, 500).trim() : "";
+
+  // The 7-day window [weekStart, weekStart+7).
+  const start = new Date(`${weekStart}T00:00:00Z`);
+  const weekEnd = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+
+  const { data: plans } = await supabase
+    .from("daily_plans")
+    .select("items")
+    .gte("plan_date", weekStart)
+    .lt("plan_date", weekEnd);
+
+  const adherence: WeekAdherence = {
+    days: plans?.length ?? 0,
+    mealsDone: 0,
+    mealsTotal: 0,
+    exercisesDone: 0,
+    exercisesTotal: 0,
+  };
+  for (const row of plans ?? []) {
+    for (const item of (row.items ?? []) as DailyPlanItem[]) {
+      if (item.kind === "meal") {
+        adherence.mealsTotal++;
+        if (item.done) adherence.mealsDone++;
+      } else {
+        adherence.exercisesTotal++;
+        if (item.done) adherence.exercisesDone++;
+      }
+    }
+  }
+
+  // Weight delta across the week's progress photos, when available.
+  let weightNote = "";
+  const { data: weights } = await supabase
+    .from("progress_photos")
+    .select("created_at, weight_kg")
+    .not("weight_kg", "is", null)
+    .order("created_at", { ascending: true })
+    .limit(60);
+  if (weights && weights.length > 0) {
+    const first = weights[0];
+    const last = weights[weights.length - 1];
+    if (weights.length >= 2 && first.weight_kg !== last.weight_kg) {
+      const delta =
+        Math.round(((last.weight_kg as number) - (first.weight_kg as number)) *
+          10) / 10;
+      weightNote =
+        `\n- Peso registrado: de ${first.weight_kg} kg a ${last.weight_kg} kg (${
+          delta > 0 ? "+" : ""
+        }${delta} kg en el periodo registrado)`;
+    } else {
+      weightNote = `\n- Último peso registrado: ${last.weight_kg} kg`;
+    }
+  }
+
+  // Opt-in: fold the latest progress-photo analysis in as text context. We
+  // reuse the already-computed analysis rather than re-running vision.
+  let photoNote = "";
+  if (includePhotos === true) {
+    const { data: photo } = await supabase
+      .from("progress_photos")
+      .select("created_at, analysis")
+      .not("analysis", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (photo?.analysis) {
+      photoNote = `\n- Último análisis de foto de progreso (${
+        photo.created_at.slice(0, 10)
+      }): ${photo.analysis}`;
+    }
+  }
+
+  const knowledge = await retrieveKnowledge(
+    supabase,
+    `progreso semanal, ${GOAL_LABEL[profile.goal ?? ""] ?? ""} ${feelingText}`,
+  );
+
+  const userMsg = feelingText
+    ? `Este es mi check-in de la semana. Cómo me sentí: ${feelingText}`
+    : "Dame mi resumen de la semana.";
+
+  const response = await anthropic.messages.create({
+    model: MODEL,
+    max_tokens: CHAT_MAX_TOKENS,
+    thinking: THINKING,
+    system: weeklyReviewSystemPrompt(
+      profile,
+      adherence,
+      weightNote,
+      photoNote,
+      knowledge,
+    ),
+    messages: [{ role: "user", content: userMsg }],
+  });
+
+  if (response.stop_reason === "refusal") {
+    return json({ error: "refused" }, 502);
+  }
+  const summary = extractText(response);
+
+  const { data: review, error: upsertError } = await supabase
+    .from("weekly_reviews")
+    .upsert(
+      {
+        user_id: userId,
+        week_start: weekStart,
+        feeling: feelingText || null,
+        summary,
+        meals_done: adherence.mealsDone,
+        meals_total: adherence.mealsTotal,
+        exercises_done: adherence.exercisesDone,
+        exercises_total: adherence.exercisesTotal,
+      },
+      { onConflict: "user_id,week_start" },
+    )
+    .select()
+    .single();
+  if (upsertError || !review) {
+    console.error("weekly review upsert error:", upsertError);
+    return json({ error: "internal" }, 500);
+  }
+
+  return json({ review });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -1064,7 +1509,23 @@ Deno.serve(async (req) => {
       );
     }
     if (type === "food_photo") {
-      return await handleFoodPhoto(anthropic, body.image, body.media_type);
+      return await handleFoodPhoto(
+        supabase,
+        anthropic,
+        userData.user.id,
+        body.image,
+        body.media_type,
+      );
+    }
+    if (type === "log_food") {
+      return await handleLogFood(
+        supabase,
+        anthropic,
+        userData.user.id,
+        profile as Profile,
+        body.date,
+        body.meal,
+      );
     }
     if (type === "photo_analysis") {
       return await handlePhotoAnalysis(
@@ -1072,6 +1533,17 @@ Deno.serve(async (req) => {
         anthropic,
         profile as Profile,
         body.photo_id,
+      );
+    }
+    if (type === "weekly_review") {
+      return await handleWeeklyReview(
+        supabase,
+        anthropic,
+        userData.user.id,
+        profile as Profile,
+        body.week_start,
+        body.feeling,
+        body.include_photos,
       );
     }
     return json({ error: "bad_request" }, 400);

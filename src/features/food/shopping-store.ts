@@ -124,6 +124,15 @@ export async function toggleShoppingItem(itemId: string) {
   }
 }
 
+/**
+ * Manual items (scanned products the user added) carry a "manual-" id; AI
+ * items get a UUID from the server. Only manual items are user-deletable and
+ * they survive list regeneration.
+ */
+export function isManualItem(item: ShoppingItem) {
+  return item.id.startsWith("manual-");
+}
+
 /** Appends a manual item (e.g. a scanned product) to this week's list. */
 export async function addShoppingItem(title: string) {
   const { list } = useShoppingStore.getState();
@@ -139,6 +148,33 @@ export async function addShoppingItem(title: string) {
   };
   const previous = list.items;
   const items = [...list.items, item];
+  useShoppingStore.setState({ list: { ...list, items } });
+
+  const { error } = await supabase
+    .from("shopping_lists")
+    .update({ items, updated_at: new Date().toISOString() })
+    .eq("id", list.id);
+
+  if (error) {
+    useShoppingStore.setState({
+      list: { ...list, items: previous },
+      errorKey: "dailyPlan.errors.save",
+    });
+  }
+}
+
+/**
+ * Removes an item from the list. Guarded to manual (scanned) items only —
+ * AI-generated items are managed by regeneration, not hand-deleted.
+ */
+export async function removeShoppingItem(itemId: string) {
+  const { list } = useShoppingStore.getState();
+  if (!list) return;
+  const target = list.items.find((item) => item.id === itemId);
+  if (!target || !isManualItem(target)) return;
+
+  const previous = list.items;
+  const items = list.items.filter((item) => item.id !== itemId);
   useShoppingStore.setState({ list: { ...list, items } });
 
   const { error } = await supabase

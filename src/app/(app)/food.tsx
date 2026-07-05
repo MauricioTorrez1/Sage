@@ -18,7 +18,9 @@ import type { ShoppingItem } from "@/features/food/shopping-store";
 import {
   addShoppingItem,
   generateShoppingList,
+  isManualItem,
   loadShoppingList,
+  removeShoppingItem,
   toggleShoppingItem,
   useShoppingStore,
 } from "@/features/food/shopping-store";
@@ -34,42 +36,60 @@ const GENERATING_MESSAGES = [
 ] as const;
 
 function ShoppingRow({ item }: { item: ShoppingItem }) {
+  const { t } = useTranslation();
+  const manual = isManualItem(item);
   return (
-    <Pressable
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked: item.done }}
-      onPress={() => toggleShoppingItem(item.id)}
-      className="flex-row items-center py-2"
-    >
-      <View
-        className={`mr-3 h-6 w-6 items-center justify-center rounded-md border ${
-          item.done
-            ? "border-sage-500 bg-sage-500"
-            : "border-sage-300 dark:border-sage-700"
-        }`}
+    <View className="flex-row items-center py-2">
+      <Pressable
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: item.done }}
+        onPress={() => toggleShoppingItem(item.id)}
+        className="flex-1 flex-row items-center"
       >
-        {item.done ? <Text className="text-xs text-white">✓</Text> : null}
-      </View>
-      <View className="flex-1">
-        <Text
-          className={`font-nunito-semibold text-base ${
+        <View
+          className={`mr-3 h-6 w-6 items-center justify-center rounded-md border ${
             item.done
-              ? "text-ink-soft line-through dark:text-ink-invmuted"
-              : "text-ink dark:text-ink-inverse"
+              ? "border-sage-500 bg-sage-500"
+              : "border-sage-300 dark:border-sage-700"
           }`}
         >
-          {item.title}
-        </Text>
-        <Text className="font-nunito text-sm text-ink-muted dark:text-ink-invmuted">
-          {item.quantity}
-        </Text>
-      </View>
-      {item.est_mxn > 0 ? (
-        <Text className="ml-2 font-nunito-semibold text-xs text-ink-soft dark:text-ink-invmuted">
-          ~${item.est_mxn}
-        </Text>
+          {item.done ? <Text className="text-xs text-white">✓</Text> : null}
+        </View>
+        <View className="flex-1">
+          <Text
+            className={`font-nunito-semibold text-base ${
+              item.done
+                ? "text-ink-soft line-through dark:text-ink-invmuted"
+                : "text-ink dark:text-ink-inverse"
+            }`}
+          >
+            {item.title}
+          </Text>
+          <Text className="font-nunito text-sm text-ink-muted dark:text-ink-invmuted">
+            {item.quantity}
+            {manual ? ` · ${t("food.scannedTag")}` : ""}
+          </Text>
+        </View>
+        {item.est_mxn > 0 ? (
+          <Text className="ml-2 font-nunito-semibold text-xs text-ink-soft dark:text-ink-invmuted">
+            ~${item.est_mxn}
+          </Text>
+        ) : null}
+      </Pressable>
+      {manual ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("food.removeItem")}
+          onPress={() => removeShoppingItem(item.id)}
+          className="ml-2 h-8 w-8 items-center justify-center rounded-full"
+          style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}
+        >
+          <Text className="text-base text-ink-muted dark:text-ink-invmuted">
+            ✕
+          </Text>
+        </Pressable>
       ) : null}
-    </Pressable>
+    </View>
   );
 }
 

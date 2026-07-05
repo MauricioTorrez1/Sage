@@ -32,6 +32,7 @@ import {
   loadPhotos,
   useProgressStore,
 } from "@/features/progress/store";
+import { WeeklyReviewCard } from "@/features/progress/WeeklyReviewCard";
 import { WeightTrend } from "@/features/progress/WeightTrend";
 import { tokens } from "@/theme/tokens";
 
@@ -248,6 +249,7 @@ export default function ProgressScreen() {
                     </Text>
                     <WeightTrend weights={weights} />
                   </View>
+                  <WeeklyReviewCard />
                 </>
               ) : null}
               {/* Pose for the NEXT photo; Sage compares same-pose photos. */}

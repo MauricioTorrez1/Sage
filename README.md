@@ -57,7 +57,7 @@ Updated at the end of every phase.
 | Food photo → structured JSON log (ephemeral, consent-first) | ✅ Done (claude-sonnet-5 — Haiku misread desserts as savory dishes; the image is never stored) |
 | Progress screen: adherence rings, weight trend, streaks, celebrations | ✅ Done |
 | Reminders | ✅ Done (local notifications; prefs on device, schedule lives in the OS) |
-| Weekly check-in with feedback + safe plan adjustment | ⏳ Planned |
+| Weekly check-in with feedback + safe plan adjustment | ✅ Done (`weekly_reviews` table; adherence recap + RAG feedback + one safe tweak, body-image guardrails, opt-in photo context) |
 | Chat streaming, portfolio README, EAS build guide | ⏳ Planned |
 
 ### Next phases (11–18)
@@ -72,7 +72,7 @@ Planned order for the remaining work, sequenced by dependencies and demo value:
 | 14 | ✅ Coach RAG (pgvector + Voyage AI `voyage-3.5`, 1024 dims, `match_knowledge_chunks`, source citations) + food photo → structured log with `claude-haiku-4-5` (ephemeral, consent-first) + wger catalog equipment variants + modal safe-area fix |
 | 15 | ~~Food photo~~ (shipped early, in 14) |
 | 16 | ✅ Local reminders with Expo Notifications (Expo Go dropped remote push): morning/evening toggles + hour stepper on the profile screen, prefs in AsyncStorage, schedule owned by the OS. Also: food photo moved to claude-sonnet-5 with quality 0.7 (Haiku at 0.4 misread a strawberry cheesecake as ham) |
-| 17 | Weekly check-in: `weekly_reviews` table, opt-in photo comparison, RAG + adherence feedback, safe plan adjustment, body-image guardrails — last because it consumes 11 and 14 |
+| 17 | ✅ Weekly check-in (`weekly_reviews` table): adherence recap from the week's `daily_plans`, RAG-backed feedback, one small safe plan tweak, body-image guardrails, opt-in progress-photo context — lives on the progress screen. Shipped alongside four refinements: **(a)** logging a food photo now recalculates the day server-side (`log_food` mode) — the eaten meal is discounted from the calorie target and the still-unchecked meals are rebuilt around it, keeping completed meals and all exercises; **(b)** food-photo scans now count toward the 3/day server-side limit; **(c)** the shopping list lets you delete scanned products, and regeneration keeps checked + scanned items and only rebuilds the rest within the remaining budget; **(d)** reminders now pick hour **and** minute |
 | 18 | Launch polish: Google OAuth, coach chat streaming, portfolio README (screenshots + GIF + architecture diagram + lessons learned), EAS Build guide |
 
 ## Health disclaimer
