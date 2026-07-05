@@ -5,6 +5,13 @@
  * Order matters: first match wins, so more specific patterns go first.
  */
 const CATALOG: { pattern: RegExp; exerciseId: number }[] = [
+  // Equipment-specific variants first so they win over the generic moves.
+  { pattern: /sentadillas?\s+(goblet|con\s+mancuernas?)|goblet/i, exerciseId: 203 },
+  { pattern: /sentadillas?\s+frontal(es)?/i, exerciseId: 257 },
+  { pattern: /peso\s+muerto\s+rumano/i, exerciseId: 1652 },
+  { pattern: /press\s+militar|press\s+de\s+hombros?\s+con\s+barra/i, exerciseId: 566 },
+  { pattern: /curl\s+(de\s+)?martillo|martillo/i, exerciseId: 272 },
+  { pattern: /tr[ií]ceps/i, exerciseId: 1519 },
   { pattern: /press\s+de\s+(banca|pecho)/i, exerciseId: 73 },
   { pattern: /press\s+(de\s+hombro|militar)/i, exerciseId: 567 },
   { pattern: /prensa\s+de\s+piernas?/i, exerciseId: 371 },

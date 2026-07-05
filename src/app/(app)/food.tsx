@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Button } from "@/components/ui/Button";
 import { GeneratingBar } from "@/components/ui/GeneratingBar";
 import { BarcodeScanner } from "@/features/food/BarcodeScanner";
+import { FoodPhotoCard } from "@/features/food/FoodPhotoCard";
 import type { ShoppingItem } from "@/features/food/shopping-store";
 import {
   addShoppingItem,
@@ -274,6 +275,8 @@ export default function FoodScreen() {
             </View>
           ) : null}
         </View>
+
+        <FoodPhotoCard />
 
         <Text className="mt-4 font-nunito text-xs text-ink-soft dark:text-ink-invmuted">
           {t("food.offCredit")}

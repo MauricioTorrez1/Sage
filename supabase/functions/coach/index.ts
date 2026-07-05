@@ -11,6 +11,9 @@ import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2";
 // Cost/quality knob. claude-sonnet-5 balances quality and price for a demo.
 // Cheaper alternative if usage grows: claude-haiku-4-5.
 const MODEL = "claude-sonnet-5";
+// Light multimodal tasks (food photo → JSON) run on Haiku: fast and cheap.
+// Haiku 4.5 has no adaptive thinking — omit the `thinking` param for it.
+const LIGHT_MODEL = "claude-haiku-4-5";
 // Sonnet 5 runs adaptive thinking when `thinking` is omitted, and thinking
 // spends from max_tokens — which truncated the daily-plan JSON. Disable it
 // explicitly on every call to keep outputs fast and within budget.
@@ -234,7 +237,70 @@ Reglas:
 - No eres profesional de la salud. Ante síntomas, lesiones, embarazo, trastornos alimenticios o condiciones médicas, recomienda con calidez consultar a un profesional y no des tratamiento.
 - Si detectas una relación dañina con la comida o el ejercicio, prioriza el bienestar sobre la meta.
 - Solo hablas de nutrición, entrenamiento, hábitos, descanso y bienestar. Si preguntan otra cosa, redirige con humor ligero a tu terreno.
-- No uses encabezados de markdown; texto plano con emojis ocasionales.`;
+- No uses encabezados de markdown; texto plano con emojis ocasionales.
+- Si hay "Base de conocimiento" abajo, apóyate en ella para dar recomendaciones con respaldo y cierra tu respuesta con una línea "Fuentes: " citando el título de las fuentes que SÍ usaste. Si no la usaste o no aplica, no inventes fuentes ni agregues esa línea.`;
+}
+
+/**
+ * RAG: embeds the question with Voyage AI and pulls the top matching
+ * knowledge chunks via the match_knowledge_chunks RPC. Returns "" (and the
+ * chat degrades gracefully to no-RAG) when the key or table are missing.
+ */
+async function retrieveKnowledge(
+  supabase: SupabaseClient,
+  question: string,
+): Promise<string> {
+  const key = Deno.env.get("VOYAGE_API_KEY");
+  if (!key) return "";
+
+  try {
+    const embedResponse = await fetch(
+      "https://api.voyageai.com/v1/embeddings",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${key}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "voyage-3.5",
+          input: [question.slice(0, 1000)],
+          input_type: "query",
+        }),
+      },
+    );
+    if (!embedResponse.ok) {
+      console.error("voyage error:", embedResponse.status);
+      return "";
+    }
+    const embedding = (await embedResponse.json())?.data?.[0]?.embedding;
+    if (!Array.isArray(embedding)) return "";
+
+    const { data: chunks, error } = await supabase.rpc(
+      "match_knowledge_chunks",
+      { query_embedding: embedding, match_count: 4 },
+    );
+    if (error || !Array.isArray(chunks) || chunks.length === 0) {
+      if (error) console.error("match_knowledge_chunks error:", error);
+      return "";
+    }
+
+    const relevant = chunks.filter(
+      (chunk) => (chunk.similarity ?? 0) > 0.4,
+    );
+    if (relevant.length === 0) return "";
+
+    const lines = relevant
+      .map(
+        (chunk) =>
+          `- [${chunk.source_title}] (${chunk.source_url}): ${chunk.content}`,
+      )
+      .join("\n");
+    return `\n\nBase de conocimiento (fragmentos relevantes; cita el título de las fuentes que uses):\n${lines}`;
+  } catch (error) {
+    console.error("rag error:", error);
+    return "";
+  }
 }
 
 function dailyPlanSystemPrompt(
@@ -256,6 +322,7 @@ Reglas:
 - Comida real, accesible y común en México; nada rebuscado ni caro.
 - 2 a 4 ejercicios/actividades realistas para su nivel; el entrenamiento completo debe caber en sus minutos disponibles y hacerse en su lugar de entrenamiento (si entrena en casa, sin máquinas de gimnasio).
 - Usa SOLO el equipo disponible del perfil (los ejercicios de peso corporal siempre valen); si no indicó equipo, asume lo típico de su lugar de entrenamiento.
+- Nombra cada ejercicio con su nombre común y estándar en español, mencionando el equipo en el título cuando aplique (p. ej. "Sentadilla goblet", "Zancadas con mancuernas", "Remo con liga", "Plancha").
 - Respeta SIEMPRE sus lesiones o limitaciones físicas: jamás incluyas ejercicios contraindicados; usa alternativas seguras que no carguen la zona afectada.
 - "title" corto (máx 6 palabras); "detail" con porciones o series/repeticiones concretas, en una línea.
 - Nunca planes extremos: nada de ayunos agresivos ni ejercicio excesivo.`;
@@ -478,13 +545,17 @@ async function handleChat(
     return json({ error: "bad_request" }, 400);
   }
 
-  const context = await chatContext(supabase, localDate);
+  const lastQuestion = messages[messages.length - 1].content;
+  const [context, knowledge] = await Promise.all([
+    chatContext(supabase, localDate),
+    retrieveKnowledge(supabase, lastQuestion),
+  ]);
 
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: CHAT_MAX_TOKENS,
     thinking: THINKING,
-    system: chatSystemPrompt(profile, context),
+    system: chatSystemPrompt(profile, context + knowledge),
     messages,
   });
 
@@ -616,6 +687,95 @@ async function handleDailyPlan(
 
   await recordGeneration(supabase, userId, "daily_plan");
   return json({ plan });
+}
+
+const FOOD_PHOTO_SCHEMA = {
+  type: "object",
+  properties: {
+    foods: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          grams: { type: "integer" },
+          kcal: { type: "integer" },
+          protein_g: { type: "integer" },
+        },
+        required: ["name", "grams", "kcal", "protein_g"],
+        additionalProperties: false,
+      },
+    },
+    total_kcal: { type: "integer" },
+    note: { type: "string" },
+  },
+  required: ["foods", "total_kcal", "note"],
+  additionalProperties: false,
+} as const;
+
+const FOOD_MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
+/**
+ * Food photo → structured estimate. EPHEMERAL by design: the image lives
+ * only in this request — it is never written to Storage or the database.
+ */
+async function handleFoodPhoto(
+  anthropic: Anthropic,
+  image: unknown,
+  mediaType: unknown,
+) {
+  if (
+    typeof image !== "string" ||
+    image.length === 0 ||
+    image.length > 7_000_000 || // ~5 MB of base64
+    typeof mediaType !== "string" ||
+    !FOOD_MEDIA_TYPES.includes(mediaType)
+  ) {
+    return json({ error: "bad_request" }, 400);
+  }
+
+  const response = await anthropic.messages.create({
+    model: LIGHT_MODEL,
+    max_tokens: 1000,
+    system:
+      `Eres Sage, coach de nutrición. Identifica los alimentos de la foto y estima porciones, en español mexicano.
+
+Reglas:
+- Son ESTIMACIONES aproximadas a partir de una foto casera; sé razonable, no exacto.
+- "name" corto por alimento; "grams", "kcal" y "protein_g" enteros estimados.
+- "total_kcal" es la suma de las kcal.
+- "note" es UNA oración amable y neutral sobre el platillo (jamás culposa ni alarmista).
+- Si la foto no muestra comida, devuelve foods vacío, total_kcal 0 y explícalo en note.`,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: {
+              type: "base64",
+              media_type: mediaType as "image/jpeg" | "image/png" | "image/webp",
+              data: image,
+            },
+          },
+          { type: "text", text: "¿Qué comida hay en esta foto?" },
+        ],
+      },
+    ],
+    output_config: {
+      format: { type: "json_schema", schema: FOOD_PHOTO_SCHEMA },
+    },
+  });
+
+  if (response.stop_reason === "refusal") {
+    return json({ error: "refused" }, 502);
+  }
+  if (response.stop_reason === "max_tokens") {
+    console.error("food photo output truncated");
+    return json({ error: "internal" }, 500);
+  }
+
+  return json({ meal: JSON.parse(extractText(response)) });
 }
 
 type ShoppingItem = {
@@ -901,6 +1061,9 @@ Deno.serve(async (req) => {
         profile as Profile,
         body.week_start,
       );
+    }
+    if (type === "food_photo") {
+      return await handleFoodPhoto(anthropic, body.image, body.media_type);
     }
     if (type === "photo_analysis") {
       return await handlePhotoAnalysis(

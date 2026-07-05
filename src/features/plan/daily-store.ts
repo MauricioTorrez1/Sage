@@ -127,6 +127,45 @@ export async function toggleItem(itemId: string) {
   }
 }
 
+/**
+ * Appends an already-eaten meal (e.g. logged from a food photo) to today's
+ * checklist. Returns false when there is no plan to append to.
+ */
+export async function addMealFromPhoto(
+  title: string,
+  detail: string,
+  kcal: number,
+) {
+  const { plan } = useDailyPlanStore.getState();
+  if (!plan) return false;
+
+  const item: DailyPlanItem = {
+    id: `photo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    kind: "meal",
+    title,
+    detail,
+    kcal,
+    done: true, // it was photographed on the plate — already eaten
+  };
+  const previous = plan.items;
+  const items = [...plan.items, item];
+  useDailyPlanStore.setState({ plan: { ...plan, items } });
+
+  const { error } = await supabase
+    .from("daily_plans")
+    .update({ items })
+    .eq("id", plan.id);
+
+  if (error) {
+    useDailyPlanStore.setState({
+      plan: { ...plan, items: previous },
+      errorKey: "dailyPlan.errors.save",
+    });
+    return false;
+  }
+  return true;
+}
+
 /** Clears cached plan state; call on sign-out. */
 export function resetDailyPlan() {
   useDailyPlanStore.setState({

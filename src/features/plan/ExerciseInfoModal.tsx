@@ -59,7 +59,9 @@ export function ExerciseInfoModal({
       onRequestClose={onClose}
     >
       <SafeAreaView className="flex-1 bg-cream dark:bg-night">
-        <ScrollView className="flex-1" contentContainerClassName="px-6 py-6">
+        {/* Extra top space: the Dynamic Island / floating button on recent
+            iPhones overlaps the first line of slide-in modals. */}
+        <ScrollView className="flex-1" contentContainerClassName="px-6 pb-6 pt-14">
           <Text className="font-nunito-extrabold text-2xl text-ink dark:text-ink-inverse">
             {exercise?.name ?? title}
           </Text>

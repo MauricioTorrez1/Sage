@@ -287,8 +287,18 @@
     "cameraPermission": "Sage necesita permiso de cámara para escanear códigos. Actívalo para continuar.",
     "grantCamera": "Dar permiso de cámara",
     "offCredit": "Datos nutricionales de Open Food Facts (base abierta y gratuita).",
+    "photoTitle": "Foto de comida 🍽️",
+    "photoConsent": "Tómale foto a tu platillo y Sage estima qué es y sus calorías. La foto se analiza al momento y NO se guarda en ningún lado.",
+    "photoAnalyzing": "Sage está viendo tu platillo...",
+    "photoMealTitle": "Comida registrada con foto",
+    "photoTotal": "Total estimado: ~{{kcal}} kcal",
+    "photoAdd": "Agregar a mi día",
+    "photoAdded": "Agregada a tu día ✓",
+    "photoNeedsPlan": "Genera tu día en el inicio para poder registrarla.",
     "errors": {
-      "generate": "No se pudo armar tu lista. Intenta de nuevo en un momento."
+      "generate": "No se pudo armar tu lista. Intenta de nuevo en un momento.",
+      "photo": "No se pudo analizar la foto. Intenta con otra toma.",
+      "photoAdd": "No se pudo agregar a tu día. Intenta de nuevo."
     }
   }
 }
