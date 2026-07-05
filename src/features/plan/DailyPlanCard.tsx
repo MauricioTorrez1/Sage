@@ -2,16 +2,10 @@ import { useColorScheme } from "nativewind";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withSequence,
-  withTiming,
-  ZoomIn,
-} from "react-native-reanimated";
+import Animated, { ZoomIn } from "react-native-reanimated";
 
 import { Button } from "@/components/ui/Button";
+import { GeneratingBar } from "@/components/ui/GeneratingBar";
 import type { DailyPlanItem } from "@/features/plan/daily-store";
 import {
   generateTodayPlan,
@@ -19,6 +13,8 @@ import {
   toggleItem,
   useDailyPlanStore,
 } from "@/features/plan/daily-store";
+import { ExerciseInfoModal } from "@/features/plan/ExerciseInfoModal";
+import { findWgerExercise } from "@/features/plan/wger-catalog";
 import { tokens } from "@/theme/tokens";
 
 const GENERATING_MESSAGES = [
@@ -27,58 +23,16 @@ const GENERATING_MESSAGES = [
   "dailyPlan.generating3",
 ] as const;
 
-/**
- * Shown in place of the generate button while Sage builds the day. The API
- * gives no real progress signal, so the bar runs two legs — a lively climb
- * to 60%, then a slow crawl toward 95% that covers a 30–90 s generation
- * (plus one silent retry) — and the card swaps in the finished plan when
- * the response lands.
- */
-function GeneratingIndicator() {
+function ItemRow({
+  item,
+  onInfo,
+}: {
+  item: DailyPlanItem;
+  onInfo: (exerciseId: number, title: string) => void;
+}) {
   const { t } = useTranslation();
-  const progress = useSharedValue(0);
-  const [messageIndex, setMessageIndex] = useState(0);
-
-  useEffect(() => {
-    progress.value = withSequence(
-      withTiming(0.6, { duration: 8000, easing: Easing.out(Easing.cubic) }),
-      withTiming(0.95, { duration: 80000, easing: Easing.out(Easing.quad) }),
-    );
-    const interval = setInterval(
-      () =>
-        setMessageIndex((index) => (index + 1) % GENERATING_MESSAGES.length),
-      4000,
-    );
-    return () => clearInterval(interval);
-  }, [progress]);
-
-  const fillStyle = useAnimatedStyle(() => ({
-    width: `${progress.value * 100}%`,
-  }));
-
-  return (
-    <View className="py-3">
-      <View className="h-2 overflow-hidden rounded-full bg-sage-100 dark:bg-sage-900">
-        {/* Reanimated views drop className on web; style the fill inline. */}
-        <Animated.View
-          style={[
-            {
-              height: "100%",
-              borderRadius: 9999,
-              backgroundColor: tokens.colors.sage[500],
-            },
-            fillStyle,
-          ]}
-        />
-      </View>
-      <Text className="mt-2 text-center font-nunito text-sm text-ink-muted dark:text-ink-invmuted">
-        {t(GENERATING_MESSAGES[messageIndex])}
-      </Text>
-    </View>
-  );
-}
-
-function ItemRow({ item }: { item: DailyPlanItem }) {
+  const wgerId =
+    item.kind === "exercise" ? findWgerExercise(item.title) : null;
   return (
     <Pressable
       accessibilityRole="checkbox"
@@ -114,6 +68,19 @@ function ItemRow({ item }: { item: DailyPlanItem }) {
           {item.kcal} kcal
         </Text>
       ) : null}
+      {wgerId !== null ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("dailyPlan.infoLabel")}
+          onPress={() => onInfo(wgerId, item.title)}
+          className="ml-2 h-8 w-8 items-center justify-center rounded-full bg-sage-100 dark:bg-sage-800"
+          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+        >
+          <Text className="font-nunito-bold text-sm text-sage-700 dark:text-sage-200">
+            ⓘ
+          </Text>
+        </Pressable>
+      ) : null}
     </Pressable>
   );
 }
@@ -126,10 +93,16 @@ export function DailyPlanCard() {
   const loaded = useDailyPlanStore((state) => state.loaded);
   const generating = useDailyPlanStore((state) => state.generating);
   const errorKey = useDailyPlanStore((state) => state.errorKey);
+  const errorHours = useDailyPlanStore((state) => state.errorHours);
+  const [info, setInfo] = useState<{ id: number; title: string } | null>(
+    null,
+  );
 
   useEffect(() => {
     loadTodayPlan();
   }, []);
+
+  const showInfo = (id: number, title: string) => setInfo({ id, title });
 
   const dateLabel = new Date().toLocaleDateString("es-MX", {
     weekday: "long",
@@ -164,7 +137,7 @@ export function DailyPlanCard() {
             {t("dailyPlan.empty")}
           </Text>
           {generating ? (
-            <GeneratingIndicator />
+            <GeneratingBar messageKeys={GENERATING_MESSAGES} />
           ) : (
             <Button title={t("dailyPlan.generate")} onPress={generateTodayPlan} />
           )}
@@ -185,18 +158,18 @@ export function DailyPlanCard() {
             {t("dailyPlan.meals")}
           </Text>
           {meals.map((item) => (
-            <ItemRow key={item.id} item={item} />
+            <ItemRow key={item.id} item={item} onInfo={showInfo} />
           ))}
 
           <Text className="mt-3 font-nunito-bold text-sm uppercase tracking-wide text-sage-700 dark:text-sage-300">
             {t("dailyPlan.exercises")}
           </Text>
           {exercises.map((item) => (
-            <ItemRow key={item.id} item={item} />
+            <ItemRow key={item.id} item={item} onInfo={showInfo} />
           ))}
 
           {generating ? (
-            <GeneratingIndicator />
+            <GeneratingBar messageKeys={GENERATING_MESSAGES} />
           ) : doneCount === total ? (
             // Celebration: the banner springs in when the last item is checked.
             // Reanimated views drop className on web; style the banner inline.
@@ -239,9 +212,15 @@ export function DailyPlanCard() {
 
       {errorKey ? (
         <Text className="mt-2 font-nunito text-sm text-terracotta-600 dark:text-terracotta-300">
-          {t(errorKey)}
+          {t(errorKey, { hours: errorHours ?? 0 })}
         </Text>
       ) : null}
+
+      <ExerciseInfoModal
+        exerciseId={info?.id ?? null}
+        title={info?.title ?? ""}
+        onClose={() => setInfo(null)}
+      />
     </View>
   );
 }

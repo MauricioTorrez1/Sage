@@ -1,5 +1,6 @@
 import { create } from "zustand";
 
+import { invokeErrorInfo } from "@/lib/functions";
 import { supabase } from "@/lib/supabase";
 
 export type ShoppingItem = {
@@ -22,6 +23,8 @@ type ShoppingState = {
   loaded: boolean;
   generating: boolean;
   errorKey: string | null;
+  /** Hours until the generation limit lifts (for coach.errors.limit). */
+  errorHours: number | null;
 };
 
 export const useShoppingStore = create<ShoppingState>(() => ({
@@ -29,6 +32,7 @@ export const useShoppingStore = create<ShoppingState>(() => ({
   loaded: false,
   generating: false,
   errorKey: null,
+  errorHours: null,
 }));
 
 /** Monday of the current local week as YYYY-MM-DD. */
@@ -56,27 +60,36 @@ export async function loadShoppingList() {
 /** Asks the coach function to (re)generate this week's list. */
 export async function generateShoppingList() {
   if (useShoppingStore.getState().generating) return;
-  useShoppingStore.setState({ generating: true, errorKey: null });
+  useShoppingStore.setState({
+    generating: true,
+    errorKey: null,
+    errorHours: null,
+  });
 
   const invoke = () =>
     supabase.functions.invoke("coach", {
       body: { type: "shopping_list", week_start: weekStartKey() },
     });
 
-  const isBusy = (e: unknown) =>
-    (e as { context?: Response })?.context?.status === 429;
-
   let { data, error } = await invoke();
+  let info = error ? await invokeErrorInfo(error) : null;
 
   // Same silent single retry as the daily plan (skip when rate limited).
-  if ((error || !data?.list) && !isBusy(error)) {
+  if ((error || !data?.list) && info?.status !== 429) {
     ({ data, error } = await invoke());
+    info = error ? await invokeErrorInfo(error) : null;
   }
 
   if (error || !data?.list) {
     useShoppingStore.setState({
       generating: false,
-      errorKey: isBusy(error) ? "coach.errors.busy" : "food.errors.generate",
+      errorKey:
+        info?.code === "limit"
+          ? "coach.errors.limit"
+          : info?.status === 429
+            ? "coach.errors.busy"
+            : "food.errors.generate",
+      errorHours: info?.hoursLeft,
     });
     return;
   }
@@ -148,5 +161,6 @@ export function resetShopping() {
     loaded: false,
     generating: false,
     errorKey: null,
+    errorHours: null,
   });
 }

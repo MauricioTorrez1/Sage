@@ -52,7 +52,7 @@ Updated at the end of every phase.
 | Optional donations (env-gated link, never blocks anything) | ✅ Done |
 | CI: lint + typecheck on every push | ✅ Done |
 | Diet data: Open Food Facts + barcode + shopping list | ✅ Done |
-| Workout data: wger exercise images/instructions | ⏳ Planned |
+| Workout data: wger exercise images/instructions | ✅ Done (curated local catalog — wger's search API was removed) |
 | Coach RAG: pgvector + Voyage AI embeddings + source citations | ⏳ Planned |
 | Food photo → structured JSON log (ephemeral, consent-first) | ⏳ Planned |
 | Progress screen: adherence rings, weight trend, streaks, celebrations | ✅ Done |
@@ -68,7 +68,7 @@ Planned order for the remaining work, sequenced by dependencies and demo value:
 |---|---|
 | 11 | ✅ Full progress screen: meal/exercise adherence rings (Apple Fitness style), weight trend, streaks, celebrations — adherence is computed straight from `daily_plans.items`, so no extra log table was needed. Also: the daily-plan prompt now sees the last week's meal titles to keep dishes varied |
 | 12 | ✅ Diet data: Open Food Facts + barcode scanning (expo-camera) + AI weekly shopping list fitted to the budget (`shopping_lists` table). Plus the training-equipment picker: multi-select chips on onboarding/profile (`profiles.training_equipment`), and daily plans only prescribe exercises the equipment allows |
-| 13 | Workout data: wger exercise images/instructions, excluding moves contraindicated by injuries |
+| 13 | ✅ Workout data: tap ⓘ on any plan exercise for a wger sheet (image + instructions, Spanish first). wger removed its search API, so titles match against a curated local catalog of verified IDs. Also shipped: server-clock generation limits (3/day for plans and shopping lists — device clock changes can't bypass it), the shared progress bar on the shopping list, and progress photos by pose (front/back/side; analysis compares same-pose photos) |
 | 14 | Coach RAG: pgvector + Voyage AI `voyage-3.5` embeddings (1024 dims, `match_knowledge_chunks`) + source citations |
 | 15 | Food photo → structured JSON log with `claude-haiku-4-5` (ephemeral, consent-first, zod-validated) |
 | 16 | Local reminders with Expo Notifications (Expo Go dropped remote push) |

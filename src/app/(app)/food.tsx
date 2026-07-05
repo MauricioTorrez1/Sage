@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "@/components/ui/Button";
+import { GeneratingBar } from "@/components/ui/GeneratingBar";
 import { BarcodeScanner } from "@/features/food/BarcodeScanner";
 import type { ShoppingItem } from "@/features/food/shopping-store";
 import {
@@ -24,6 +25,12 @@ import { useProfileStore } from "@/features/profile/store";
 import type { FoodProduct } from "@/lib/openfoodfacts";
 import { fetchProductByBarcode } from "@/lib/openfoodfacts";
 import { tokens } from "@/theme/tokens";
+
+const GENERATING_MESSAGES = [
+  "food.generating1",
+  "food.generating2",
+  "food.generating3",
+] as const;
 
 function ShoppingRow({ item }: { item: ShoppingItem }) {
   return (
@@ -85,6 +92,7 @@ export default function FoodScreen() {
   const loaded = useShoppingStore((state) => state.loaded);
   const generating = useShoppingStore((state) => state.generating);
   const errorKey = useShoppingStore((state) => state.errorKey);
+  const errorHours = useShoppingStore((state) => state.errorHours);
 
   const [scannerVisible, setScannerVisible] = useState(false);
   const [lookingUp, setLookingUp] = useState(false);
@@ -145,11 +153,14 @@ export default function FoodScreen() {
               <Text className="mb-4 mt-2 font-nunito text-sm text-ink-muted dark:text-ink-invmuted">
                 {t("food.shoppingEmpty")}
               </Text>
-              <Button
-                title={t("food.generate")}
-                onPress={generateShoppingList}
-                loading={generating}
-              />
+              {generating ? (
+                <GeneratingBar messageKeys={GENERATING_MESSAGES} />
+              ) : (
+                <Button
+                  title={t("food.generate")}
+                  onPress={generateShoppingList}
+                />
+              )}
             </>
           ) : (
             <>
@@ -174,17 +185,20 @@ export default function FoodScreen() {
                   </Text>
                 ) : null}
               </View>
-              <Button
-                title={t("food.regenerate")}
-                onPress={generateShoppingList}
-                loading={generating}
-                variant="ghost"
-              />
+              {generating ? (
+                <GeneratingBar messageKeys={GENERATING_MESSAGES} />
+              ) : (
+                <Button
+                  title={t("food.regenerate")}
+                  onPress={generateShoppingList}
+                  variant="ghost"
+                />
+              )}
             </>
           )}
           {errorKey ? (
             <Text className="mt-2 font-nunito text-sm text-terracotta-600 dark:text-terracotta-300">
-              {t(errorKey)}
+              {t(errorKey, { hours: errorHours ?? 0 })}
             </Text>
           ) : null}
         </View>

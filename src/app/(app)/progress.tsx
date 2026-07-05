@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -24,7 +24,7 @@ import {
   todayAdherence,
   useStatsStore,
 } from "@/features/progress/stats";
-import type { ProgressPhoto } from "@/features/progress/store";
+import type { PhotoPose, ProgressPhoto } from "@/features/progress/store";
 import {
   addPhoto,
   analyzePhoto,
@@ -34,6 +34,13 @@ import {
 } from "@/features/progress/store";
 import { WeightTrend } from "@/features/progress/WeightTrend";
 import { tokens } from "@/theme/tokens";
+
+const POSE_LABEL_KEY: Record<PhotoPose, string> = {
+  front: "progress.poseFront",
+  back: "progress.poseBack",
+  side: "progress.poseSide",
+};
+const POSES: PhotoPose[] = ["front", "back", "side"];
 
 const PICKER_OPTIONS: ImagePicker.ImagePickerOptions = {
   mediaTypes: ["images"],
@@ -101,6 +108,7 @@ function PhotoCard({ photo }: { photo: ProgressPhoto }) {
       <View className="p-4">
         <Text className="font-nunito-semibold text-sm text-ink-muted dark:text-ink-invmuted">
           {date}
+          {` · ${t(POSE_LABEL_KEY[photo.pose ?? "front"])}`}
           {photo.weight_kg ? ` · ${photo.weight_kg} kg` : ""}
         </Text>
         {photo.analysis ? (
@@ -137,6 +145,7 @@ export default function ProgressScreen() {
   const days = useStatsStore((state) => state.days);
   const weights = useStatsStore((state) => state.weights);
   const statsLoaded = useStatsStore((state) => state.loaded);
+  const [pose, setPose] = useState<PhotoPose>("front");
 
   useEffect(() => {
     loadPhotos();
@@ -170,7 +179,7 @@ export default function ProgressScreen() {
       : await ImagePicker.launchImageLibraryAsync(PICKER_OPTIONS);
     const asset = result.assets?.[0];
     if (result.canceled || !asset) return;
-    await addPhoto(session.user.id, asset.uri, profile?.weight_kg ?? null);
+    await addPhoto(session.user.id, asset.uri, profile?.weight_kg ?? null, pose);
   }
 
   return (
@@ -241,6 +250,36 @@ export default function ProgressScreen() {
                   </View>
                 </>
               ) : null}
+              {/* Pose for the NEXT photo; Sage compares same-pose photos. */}
+              <Text className="mb-2 font-nunito-semibold text-sm text-ink dark:text-ink-inverse">
+                {t("progress.poseTitle")}
+              </Text>
+              <View className="mb-3 flex-row gap-2">
+                {POSES.map((option) => {
+                  const selected = option === pose;
+                  return (
+                    <Pressable
+                      key={option}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected }}
+                      onPress={() => setPose(option)}
+                      className={`flex-1 items-center rounded-full border px-3 py-2 ${
+                        selected
+                          ? "border-sage-500 bg-sage-100 dark:border-sage-400 dark:bg-sage-800"
+                          : "border-sage-200 bg-white dark:border-sage-800 dark:bg-nightSurface"
+                      }`}
+                    >
+                      <Text
+                        className={`text-sm text-ink dark:text-ink-inverse ${
+                          selected ? "font-nunito-bold" : "font-nunito-semibold"
+                        }`}
+                      >
+                        {t(POSE_LABEL_KEY[option])}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
               <View className="flex-row gap-3">
                 <View className="flex-1">
                   <Button

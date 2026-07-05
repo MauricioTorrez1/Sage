@@ -172,6 +172,7 @@
     "thinking": "Sage está pensando...",
     "errors": {
       "busy": "Sage está saturado ahorita. Espera un momentito y vuelve a enviar tu mensaje.",
+      "limit": "Ya usaste tus 3 generaciones de hoy 🌿 Se libera en ~{{hours}} h.",
       "generic": "No se pudo enviar tu mensaje. Revisa tu conexión y vuelve a intentar."
     }
   },
@@ -189,6 +190,11 @@
     "progress": "Avance del día: {{percent}}%",
     "meals": "Comidas",
     "exercises": "Entrenamiento",
+    "infoLabel": "Ver cómo se hace",
+    "infoLoading": "Buscando la ficha del ejercicio...",
+    "infoError": "No encontré la ficha de este ejercicio. Pregúntale a Sage en el chat cómo hacerlo.",
+    "infoCredit": "Ficha e imagen de wger.de (base abierta de ejercicios, CC-BY-SA).",
+    "infoClose": "Cerrar",
     "errors": {
       "generate": "No se pudo generar tu día. Intenta de nuevo en un momento.",
       "save": "No se guardó el cambio. Revisa tu conexión e intenta de nuevo."
@@ -208,6 +214,10 @@
     "weightEmpty": "Tu peso se registra con cada foto que subes. Con dos o más registros verás aquí tu tendencia.",
     "takePhoto": "Tomar foto",
     "pickPhoto": "De la galería",
+    "poseTitle": "¿Desde qué ángulo es la foto?",
+    "poseFront": "Frente",
+    "poseBack": "Espalda",
+    "poseSide": "Perfil",
     "privacyNote": "🔒 Tus fotos son privadas: se guardan en un espacio protegido y solo tú tienes acceso a ellas. Puedes borrarlas cuando quieras.",
     "empty": "Sube tu primera foto para tener tu punto de partida. Sage la analizará y luego irá comparando tu avance con cada foto nueva.",
     "analyzing": "Sage está analizando tu foto...",
@@ -260,6 +270,9 @@
     "regenerate": "Regenerar lista",
     "total": "Total estimado: ~${{total}} MXN",
     "budget": "Presupuesto: ${{budget}} MXN",
+    "generating1": "Sage está eligiendo tus ingredientes… 🥑",
+    "generating2": "Cuadrando la lista con tu presupuesto… 🛒",
+    "generating3": "Revisando tus platillos de la semana… 🌿",
     "scanTitle": "Escáner de productos",
     "scanSubtitle": "Apunta al código de barras de un producto y te digo qué tal está (datos de Open Food Facts).",
     "scan": "Escanear producto 📷",

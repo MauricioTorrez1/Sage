@@ -1,5 +1,6 @@
 import { create } from "zustand";
 
+import { invokeErrorInfo } from "@/lib/functions";
 import { supabase } from "@/lib/supabase";
 
 export type DailyPlanItem = {
@@ -23,6 +24,8 @@ type DailyPlanState = {
   loaded: boolean;
   generating: boolean;
   errorKey: string | null;
+  /** Hours until the generation limit lifts (for coach.errors.limit). */
+  errorHours: number | null;
 };
 
 export const useDailyPlanStore = create<DailyPlanState>(() => ({
@@ -30,6 +33,7 @@ export const useDailyPlanStore = create<DailyPlanState>(() => ({
   loaded: false,
   generating: false,
   errorKey: null,
+  errorHours: null,
 }));
 
 /** Local device date as YYYY-MM-DD ("en-CA" formats exactly that way). */
@@ -54,29 +58,38 @@ export async function loadTodayPlan() {
 /** Asks the coach function to generate (or regenerate) today's checklist. */
 export async function generateTodayPlan() {
   if (useDailyPlanStore.getState().generating) return;
-  useDailyPlanStore.setState({ generating: true, errorKey: null });
+  useDailyPlanStore.setState({
+    generating: true,
+    errorKey: null,
+    errorHours: null,
+  });
 
   const invoke = () =>
     supabase.functions.invoke("coach", {
       body: { type: "daily_plan", date: todayKey() },
     });
 
-  const isBusy = (e: unknown) =>
-    (e as { context?: Response })?.context?.status === 429;
-
   let { data, error } = await invoke();
+  let info = error ? await invokeErrorInfo(error) : null;
 
   // Server hiccups (timeouts, truncated output) resolve on a fresh attempt
   // far more often than not; retry once before bothering the user. A 429
-  // means the function is rate limited — retrying immediately won't help.
-  if ((error || !data?.plan) && !isBusy(error)) {
+  // (busy or daily limit) won't improve by retrying immediately.
+  if ((error || !data?.plan) && info?.status !== 429) {
     ({ data, error } = await invoke());
+    info = error ? await invokeErrorInfo(error) : null;
   }
 
   if (error || !data?.plan) {
     useDailyPlanStore.setState({
       generating: false,
-      errorKey: isBusy(error) ? "coach.errors.busy" : "dailyPlan.errors.generate",
+      errorKey:
+        info?.code === "limit"
+          ? "coach.errors.limit"
+          : info?.status === 429
+            ? "coach.errors.busy"
+            : "dailyPlan.errors.generate",
+      errorHours: info?.hoursLeft,
     });
     return;
   }
@@ -121,5 +134,6 @@ export function resetDailyPlan() {
     loaded: false,
     generating: false,
     errorKey: null,
+    errorHours: null,
   });
 }

@@ -2,11 +2,15 @@ import { create } from "zustand";
 
 import { supabase } from "@/lib/supabase";
 
+export type PhotoPose = "front" | "back" | "side";
+
 export type ProgressPhoto = {
   id: string;
   storage_path: string;
   weight_kg: number | null;
   analysis: string | null;
+  /** Photos from before poses existed are null and count as front. */
+  pose: PhotoPose | null;
   created_at: string;
   /** Short-lived display URL for the private bucket object. */
   signedUrl?: string;
@@ -72,6 +76,7 @@ export async function addPhoto(
   userId: string,
   localUri: string,
   weightKg: number | null,
+  pose: PhotoPose,
 ) {
   if (useProgressStore.getState().uploading) return;
   useProgressStore.setState({ uploading: true, errorKey: null });
@@ -87,7 +92,12 @@ export async function addPhoto(
 
     const { data: photo, error: insertError } = await supabase
       .from("progress_photos")
-      .insert({ user_id: userId, storage_path: path, weight_kg: weightKg })
+      .insert({
+        user_id: userId,
+        storage_path: path,
+        weight_kg: weightKg,
+        pose,
+      })
       .select()
       .single();
     if (insertError || !photo) throw insertError ?? new Error("insert failed");

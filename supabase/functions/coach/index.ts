@@ -22,6 +22,10 @@ const PLAN_MAX_TOKENS = 6000;
 // Hard limits so a runaway client can't rack up spend.
 const MAX_MESSAGES = 30;
 const MAX_MESSAGE_CHARS = 2000;
+// Each generation kind is capped per rolling 24h window, on SERVER time —
+// the device clock is irrelevant, so changing the phone's hour won't help.
+const DAILY_GENERATION_LIMIT = 3;
+const LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -415,6 +419,41 @@ function extractText(response: Anthropic.Message) {
     .join("");
 }
 
+/**
+ * Hours until the user may generate `kind` again, or null if still allowed.
+ * Counts ai_generations rows in the rolling window (RLS scopes to caller).
+ */
+async function generationHoursLeft(
+  supabase: SupabaseClient,
+  kind: "daily_plan" | "shopping_list",
+) {
+  const since = new Date(Date.now() - LIMIT_WINDOW_MS).toISOString();
+  const { data } = await supabase
+    .from("ai_generations")
+    .select("created_at")
+    .eq("kind", kind)
+    .gte("created_at", since)
+    .order("created_at", { ascending: true });
+  if (!data || data.length < DAILY_GENERATION_LIMIT) return null;
+
+  const oldest = new Date(data[0].created_at as string).getTime();
+  return Math.max(
+    1,
+    Math.ceil((oldest + LIMIT_WINDOW_MS - Date.now()) / (60 * 60 * 1000)),
+  );
+}
+
+async function recordGeneration(
+  supabase: SupabaseClient,
+  userId: string,
+  kind: "daily_plan" | "shopping_list",
+) {
+  const { error } = await supabase
+    .from("ai_generations")
+    .insert({ user_id: userId, kind });
+  if (error) console.error("generation record error:", error);
+}
+
 async function handleChat(
   supabase: SupabaseClient,
   anthropic: Anthropic,
@@ -479,6 +518,11 @@ async function handleDailyPlan(
 ) {
   if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return json({ error: "bad_request" }, 400);
+  }
+
+  const hoursLeft = await generationHoursLeft(supabase, "daily_plan");
+  if (hoursLeft !== null) {
+    return json({ error: "limit", hours_left: hoursLeft }, 429);
   }
 
   // Completed items survive regeneration: only the unchecked part of the
@@ -570,6 +614,7 @@ async function handleDailyPlan(
     return json({ error: "internal" }, 500);
   }
 
+  await recordGeneration(supabase, userId, "daily_plan");
   return json({ plan });
 }
 
@@ -590,6 +635,11 @@ async function handleShoppingList(
 ) {
   if (typeof weekStart !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
     return json({ error: "bad_request" }, 400);
+  }
+
+  const hoursLeft = await generationHoursLeft(supabase, "shopping_list");
+  if (hoursLeft !== null) {
+    return json({ error: "limit", hours_left: hoursLeft }, 429);
   }
 
   // Recent meals keep the list aligned with what the plan actually serves.
@@ -674,6 +724,7 @@ async function handleShoppingList(
     return json({ error: "internal" }, 500);
   }
 
+  await recordGeneration(supabase, userId, "shopping_list");
   return json({ list });
 }
 
@@ -697,13 +748,19 @@ async function handlePhotoAnalysis(
     return json({ error: "photo_not_found" }, 404);
   }
 
-  const { data: previous } = await supabase
+  // Compare against the previous photo of the SAME pose — a back photo
+  // against a front one would read as fake progress. Photos from before
+  // poses existed (null) count as front.
+  const pose = (photo.pose ?? "front") as string;
+  const { data: candidates } = await supabase
     .from("progress_photos")
     .select("*")
     .lt("created_at", photo.created_at)
     .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(20);
+  const previous = (candidates ?? []).find(
+    (p) => ((p.pose ?? "front") as string) === pose,
+  ) ?? null;
 
   const signedUrl = async (path: string) => {
     const { data, error } = await supabase.storage
@@ -713,14 +770,21 @@ async function handlePhotoAnalysis(
     return data.signedUrl;
   };
 
+  const POSE_LABEL: Record<string, string> = {
+    front: "de frente",
+    back: "de espalda",
+    side: "de perfil",
+  };
+  const poseLabel = POSE_LABEL[pose] ?? POSE_LABEL.front;
+
   const content: Anthropic.ContentBlockParam[] = [];
   if (previous) {
     content.push(
       {
         type: "text",
-        text: `Foto ANTERIOR (${previous.created_at.slice(0, 10)}${
-          previous.weight_kg ? `, ${previous.weight_kg} kg` : ""
-        }):`,
+        text: `Foto ANTERIOR ${poseLabel} (${
+          previous.created_at.slice(0, 10)
+        }${previous.weight_kg ? `, ${previous.weight_kg} kg` : ""}):`,
       },
       {
         type: "image",
@@ -731,7 +795,7 @@ async function handlePhotoAnalysis(
   content.push(
     {
       type: "text",
-      text: `Foto NUEVA (${photo.created_at.slice(0, 10)}${
+      text: `Foto NUEVA ${poseLabel} (${photo.created_at.slice(0, 10)}${
         photo.weight_kg ? `, ${photo.weight_kg} kg` : ""
       }):`,
     },
@@ -742,8 +806,8 @@ async function handlePhotoAnalysis(
     {
       type: "text",
       text: previous
-        ? "Evalúa mi progreso entre estas dos fotos."
-        : "Esta es mi primera foto: descríbela como mi punto de partida.",
+        ? `Evalúa mi progreso entre estas dos fotos ${poseLabel}.`
+        : `Esta es mi primera foto ${poseLabel}: descríbela como mi punto de partida.`,
     },
   );
 
