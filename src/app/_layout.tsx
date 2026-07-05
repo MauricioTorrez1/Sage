@@ -14,6 +14,7 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 
 import { startAuthListener, useAuthStore } from "@/features/auth/store";
+import { initReminders } from "@/features/reminders/store";
 import { loadThemePreference } from "@/features/theme/store";
 
 SplashScreen.preventAutoHideAsync();
@@ -23,6 +24,7 @@ startAuthListener();
 export default function RootLayout() {
   useEffect(() => {
     loadThemePreference();
+    initReminders();
   }, []);
 
   const [fontsLoaded, fontError] = useFonts({

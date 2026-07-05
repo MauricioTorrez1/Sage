@@ -20,7 +20,7 @@ type FoodEstimate = {
 
 const PICKER_OPTIONS: ImagePicker.ImagePickerOptions = {
   mediaTypes: ["images"],
-  quality: 0.4, // keeps the base64 payload small; plenty for food ID
+  quality: 0.7, // 0.4 was too lossy — the model misread desserts as savory
   base64: true,
 };
 

@@ -300,5 +300,21 @@
       "photo": "No se pudo analizar la foto. Intenta con otra toma.",
       "photoAdd": "No se pudo agregar a tu día. Intenta de nuevo."
     }
+  },
+  "reminders": {
+    "title": "Recordatorios diarios",
+    "subtitle": "Notificaciones locales en tu teléfono — nada sale de tu dispositivo.",
+    "morningLabel": "En la mañana ☀️",
+    "morningHint": "Arranca el día con tu plan de comidas y entrenamiento.",
+    "eveningLabel": "En la noche 🌙",
+    "eveningHint": "Registra cómo te fue antes de dormir.",
+    "hourA11y": "Hora del recordatorio",
+    "earlier": "Una hora antes",
+    "later": "Una hora después",
+    "permissionDenied": "Las notificaciones están apagadas para Sage. Actívalas en los Ajustes de tu teléfono para usar recordatorios.",
+    "morningTitle": "¡Buenos días! 🌿",
+    "morningBody": "Tu plan de hoy te espera en Sage. Desayuno, entrenamiento y todo lo demás.",
+    "eveningTitle": "¿Cómo te fue hoy? 🌙",
+    "eveningBody": "Date una vuelta por Sage y registra tus comidas y tu entrenamiento del día."
   }
 }

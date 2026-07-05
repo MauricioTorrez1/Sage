@@ -11,9 +11,6 @@ import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2";
 // Cost/quality knob. claude-sonnet-5 balances quality and price for a demo.
 // Cheaper alternative if usage grows: claude-haiku-4-5.
 const MODEL = "claude-sonnet-5";
-// Light multimodal tasks (food photo → JSON) run on Haiku: fast and cheap.
-// Haiku 4.5 has no adaptive thinking — omit the `thinking` param for it.
-const LIGHT_MODEL = "claude-haiku-4-5";
 // Sonnet 5 runs adaptive thinking when `thinking` is omitted, and thinking
 // spends from max_tokens — which truncated the daily-plan JSON. Disable it
 // explicitly on every call to keep outputs fast and within budget.
@@ -734,13 +731,17 @@ async function handleFoodPhoto(
     return json({ error: "bad_request" }, 400);
   }
 
+  // Sonnet (not Haiku): food ID from home photos needs the better eyes —
+  // Haiku confused a strawberry cheesecake with a ham tart in testing.
   const response = await anthropic.messages.create({
-    model: LIGHT_MODEL,
+    model: MODEL,
     max_tokens: 1000,
+    thinking: THINKING,
     system:
       `Eres Sage, coach de nutrición. Identifica los alimentos de la foto y estima porciones, en español mexicano.
 
 Reglas:
+- Observa con cuidado colores, texturas y contexto antes de decidir: distingue lo dulce (postres, frutas, mermeladas, crema) de lo salado (carnes, embutidos, quesos curados). Si dudas entre dos platillos, elige el más probable y dilo en "note".
 - Son ESTIMACIONES aproximadas a partir de una foto casera; sé razonable, no exacto.
 - "name" corto por alimento; "grams", "kcal" y "protein_g" enteros estimados.
 - "total_kcal" es la suma de las kcal.

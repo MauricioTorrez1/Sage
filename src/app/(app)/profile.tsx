@@ -25,6 +25,7 @@ import {
   trainingSchema,
 } from "@/features/profile/schemas";
 import { updateProfile, useProfileStore } from "@/features/profile/store";
+import { RemindersCard } from "@/features/reminders/RemindersCard";
 import type {
   ActivityLevel,
   BodyType,
@@ -303,6 +304,9 @@ export default function ProfileScreen() {
         value={themePreference}
         onChange={setThemePreference}
       />
+
+      {/* Device-local; applies immediately, no save needed. */}
+      <RemindersCard />
 
       {formError ? (
         <Text className="mb-4 font-nunito text-sm text-terracotta-600 dark:text-terracotta-300">

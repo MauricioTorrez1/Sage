@@ -54,9 +54,9 @@ Updated at the end of every phase.
 | Diet data: Open Food Facts + barcode + shopping list | ✅ Done |
 | Workout data: wger exercise images/instructions | ✅ Done (curated local catalog — wger's search API was removed) |
 | Coach RAG: pgvector + Voyage AI embeddings + source citations | ✅ Done (curated knowledge base in `supabase/knowledge/`, ingested by `scripts/ingest-knowledge.mjs`; chat degrades gracefully without `VOYAGE_API_KEY`) |
-| Food photo → structured JSON log (ephemeral, consent-first) | ✅ Done (claude-haiku-4-5; the image is never stored) |
+| Food photo → structured JSON log (ephemeral, consent-first) | ✅ Done (claude-sonnet-5 — Haiku misread desserts as savory dishes; the image is never stored) |
 | Progress screen: adherence rings, weight trend, streaks, celebrations | ✅ Done |
-| Reminders | ⏳ Planned (local only — Expo Go dropped remote push) |
+| Reminders | ✅ Done (local notifications; prefs on device, schedule lives in the OS) |
 | Weekly check-in with feedback + safe plan adjustment | ⏳ Planned |
 | Chat streaming, portfolio README, EAS build guide | ⏳ Planned |
 
@@ -71,7 +71,7 @@ Planned order for the remaining work, sequenced by dependencies and demo value:
 | 13 | ✅ Workout data: tap ⓘ on any plan exercise for a wger sheet (image + instructions, Spanish first). wger removed its search API, so titles match against a curated local catalog of verified IDs. Also shipped: server-clock generation limits (3/day for plans and shopping lists — device clock changes can't bypass it), the shared progress bar on the shopping list, and progress photos by pose (front/back/side; analysis compares same-pose photos) |
 | 14 | ✅ Coach RAG (pgvector + Voyage AI `voyage-3.5`, 1024 dims, `match_knowledge_chunks`, source citations) + food photo → structured log with `claude-haiku-4-5` (ephemeral, consent-first) + wger catalog equipment variants + modal safe-area fix |
 | 15 | ~~Food photo~~ (shipped early, in 14) |
-| 16 | Local reminders with Expo Notifications (Expo Go dropped remote push) |
+| 16 | ✅ Local reminders with Expo Notifications (Expo Go dropped remote push): morning/evening toggles + hour stepper on the profile screen, prefs in AsyncStorage, schedule owned by the OS. Also: food photo moved to claude-sonnet-5 with quality 0.7 (Haiku at 0.4 misread a strawberry cheesecake as ham) |
 | 17 | Weekly check-in: `weekly_reviews` table, opt-in photo comparison, RAG + adherence feedback, safe plan adjustment, body-image guardrails — last because it consumes 11 and 14 |
 | 18 | Launch polish: Google OAuth, coach chat streaming, portfolio README (screenshots + GIF + architecture diagram + lessons learned), EAS Build guide |
 
