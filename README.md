@@ -1,140 +1,177 @@
-# Sage 🌿
+<div align="center">
 
-**AI-powered nutrition and personal training coach.** Warm, calm and motivating — built to inspire consistency, never guilt.
+# 🌿 Sage
 
-Sage builds you a daily plan (meals + workout) that honors your body, goal, budget, allergies, injuries and available equipment; then coaches you through it in a streaming chat backed by a curated knowledge base, reads your food photos to keep the day's calories balanced, tracks progress photos privately, and checks in with you every week — always in warm Mexican Spanish.
+### Tu coach de nutrición y entrenamiento con IA
 
-## Screenshots
+*Cálido, constante y sin culpas — diseñado para inspirar hábitos, nunca para juzgarte.*
 
-<!-- TODO(screenshots): drop iPhone captures into assets/screenshots/ and
-     remove this comment. Suggested shots, in this order: -->
+<br/>
 
-| Home & daily plan | Coach chat (streaming) | Progress | Weekly check-in |
-|---|---|---|---|
-| ![Home](assets/screenshots/home.png) | ![Coach](assets/screenshots/coach.png) | ![Progress](assets/screenshots/progress.png) | ![Check-in](assets/screenshots/checkin.png) |
+![Expo](https://img.shields.io/badge/Expo_SDK_54-000020?style=for-the-badge&logo=expo&logoColor=white)
+![React Native](https://img.shields.io/badge/React_Native-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
+![TypeScript](https://img.shields.io/badge/TypeScript_strict-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-3FCF8E?style=for-the-badge&logo=supabase&logoColor=white)
+![Claude](https://img.shields.io/badge/Claude_API-D97757?style=for-the-badge&logo=anthropic&logoColor=white)
+![License](https://img.shields.io/badge/MIT-grey?style=for-the-badge)
 
-| Food photo → log | Shopping list + barcode | Onboarding | Dark mode |
-|---|---|---|---|
-| ![Food photo](assets/screenshots/food-photo.png) | ![Shopping](assets/screenshots/shopping.png) | ![Onboarding](assets/screenshots/onboarding.png) | ![Dark](assets/screenshots/dark.png) |
+</div>
 
-<!-- TODO(gif): a short screen recording (chat streaming or checking off the
-     daily plan) converted to GIF sells the app better than any still. -->
+---
 
-## Features
+**Sage** construye tu día completo — comidas que cuadran con tus calorías y un entrenamiento a tu medida — respetando tu cuerpo, tu meta, tu presupuesto, tus alergias, tus lesiones y el equipo que tienes a la mano. Te acompaña con un chat que responde en tiempo real, respaldado por una base de conocimiento con citas; lee fotos de tu comida para recuadrar el día, cuida tu progreso con fotos privadas y cierra cada semana con un check-in amable. Todo en español mexicano.
 
-- **AI daily plan** — 3–4 meals that hit your computed calorie/protein target (Mifflin-St Jeor) plus a workout that fits your minutes, place and equipment. Regenerating keeps what you already checked off and rebuilds only the rest.
-- **Coach chat with RAG** — streams its reply token by token; grounds advice in a curated knowledge base (pgvector + Voyage AI embeddings) and cites its sources; sees today's plan and your latest progress analysis.
-- **Food photo logging** — snap your plate, Claude vision estimates the foods and calories, and the day's remaining meals are recalculated around what you actually ate. The image is analyzed and discarded — never stored.
-- **Progress photos** — private bucket, pose-aware before/after analysis (front/back/side), weight trend, adherence rings and streaks.
-- **Weekly check-in** — adherence recap, warm feedback with body-image guardrails, and exactly one small, safe plan tweak.
-- **Diet data** — Open Food Facts barcode scanning and an AI shopping list fitted to your weekly budget in MXN.
-- **Safety rails everywhere** — no extreme deficits, injuries respected, allergy-aware, "consult a professional" boundaries, and server-clock generation limits (3/day per feature) so cost can't run away.
-- **Auth** — email + password with OTP recovery, or one-tap Google sign-in.
+## ✨ Qué hace
 
-## Architecture
+- 🍽️ **Plan diario con IA** — 3 o 4 comidas que suman tu objetivo calórico (Mifflin-St Jeor) y un entrenamiento que cabe en tus minutos, tu lugar y tu equipo. Al regenerar, lo que ya palomeaste se queda: solo se reconstruye el resto.
+- 💬 **Coach con RAG y streaming** — el chat escribe su respuesta token por token, fundamenta sus consejos en una base de conocimiento curada (pgvector + embeddings de Voyage AI) y cita sus fuentes. Ve tu plan de hoy y tu último análisis de progreso.
+- 📸 **Foto de comida → registro** — le tomas foto a tu plato, la visión de Claude estima alimentos y calorías, y las comidas restantes del día se recalculan alrededor de lo que realmente comiste. La imagen se analiza y se descarta: jamás se guarda.
+- 🏃 **Progreso que motiva** — anillos de adherencia diarios y semanales estilo Apple Fitness, barra de calorías del día con avisos amables, tendencia de peso, rachas y celebraciones. Fotos de progreso en bucket privado con análisis por pose (frente/espalda/perfil).
+- 📅 **Check-in semanal** — resumen de adherencia, feedback cálido con guardarraíles de imagen corporal, y exactamente *un* ajuste pequeño y seguro por semana.
+- 🛒 **Datos de dieta reales** — escáner de código de barras (Open Food Facts) y lista del súper generada por IA que cabe en tu presupuesto semanal en MXN.
+- 🛡️ **Seguridad por diseño** — sin déficits extremos, lesiones y alergias respetadas siempre, límites de "consulta a un profesional", y cuotas de generación del lado del servidor (3/día por función) para que el costo nunca se dispare.
+- 🔐 **Auth flexible** — correo + contraseña con recuperación por código, o un toque con Google.
+
+## 📱 Capturas
+
+> 🚧 *Próximamente — la app está en uso diario y las capturas llegan con la primera gran actualización.*
+
+<!-- TODO(screenshots): assets/screenshots/ → home, coach (streaming), progreso,
+     check-in, foto de comida, súper, onboarding, dark mode + GIF del chat. -->
+
+## 🧭 Arquitectura
 
 ```mermaid
 flowchart LR
-  subgraph Phone["📱 iPhone — Expo (React Native)"]
-    UI["Expo Router screens<br/>NativeWind + Reanimated"]
-    Stores["Zustand stores"]
-    Notif["Local notifications<br/>(schedule owned by the OS)"]
-    UI --> Stores
-  end
+    subgraph telefono["📱 iPhone · Expo (React Native)"]
+        direction TB
+        UI["Pantallas<br/>Expo Router · NativeWind · Reanimated"]
+        stores["Estado<br/>Zustand"]
+        notif["Recordatorios locales<br/>(el sistema operativo agenda)"]
+        UI === stores
+    end
 
-  subgraph Supabase["Supabase"]
-    Auth["Auth<br/>email + Google OAuth"]
-    DB[("Postgres + RLS<br/>profiles, daily_plans,<br/>chat, photos, reviews,<br/>knowledge (pgvector)")]
-    Storage["Storage<br/>private progress photos"]
-    Coach["Edge Function: coach<br/>chat (SSE) · plans · lists ·<br/>food photo · weekly review"]
-  end
+    subgraph nube["☁️ Supabase"]
+        direction TB
+        auth["Auth<br/>correo · Google OAuth"]
+        db[("Postgres + RLS<br/>perfiles · planes · chat<br/>fotos · reviews · pgvector")]
+        storage["Storage<br/>fotos privadas"]
+        coach["⚡ Edge Function · coach<br/>chat SSE · planes · listas<br/>foto de comida · check-in"]
+    end
 
-  Claude["Claude API<br/>claude-sonnet-5<br/>text · vision · structured output"]
-  Voyage["Voyage AI<br/>embeddings"]
-  OFF["Open Food Facts<br/>barcode lookup"]
+    subgraph ia["🤖 Servicios de IA"]
+        direction TB
+        claude["Claude API<br/>texto · visión · JSON estructurado"]
+        voyage["Voyage AI<br/>embeddings"]
+    end
 
-  Stores -->|"supabase-js (RLS)"| DB
-  Stores --> Auth
-  Stores --> Storage
-  Stores -->|"JWT + SSE"| Coach
-  Coach --> Claude
-  Coach -->|"query embedding"| Voyage
-  Coach --> DB
-  Stores --> OFF
+    off["🥫 Open Food Facts<br/>código de barras"]
+
+    stores -- "supabase-js · RLS" --> db
+    stores --> auth
+    stores --> storage
+    stores -- "JWT · SSE" --> coach
+    stores --> off
+    coach --> claude
+    coach -- "embedding de la pregunta" --> voyage
+    coach --> db
+
+    classDef phone fill:#E5ECE6,stroke:#7C9A83,stroke-width:2px,color:#2F3B33
+    classDef supa fill:#E8F5EE,stroke:#3FCF8E,stroke-width:2px,color:#1F3D2E
+    classDef aiSvc fill:#FBEAE2,stroke:#D97757,stroke-width:2px,color:#4A2E22
+    classDef ext fill:#FFF7E0,stroke:#D9B457,stroke-width:2px,color:#4A3E1E
+
+    class UI,stores,notif phone
+    class auth,db,storage,coach supa
+    class claude,voyage aiSvc
+    class off ext
 ```
 
-Every request to the Edge Function is JWT-verified and every table is behind row-level security, so the function acts *as the calling user* — there is no trusted client. The Claude API key never leaves the server.
+Cada petición a la Edge Function se verifica con JWT y cada tabla vive detrás de *row-level security*: la función actúa **como el usuario que llama** — no existe un cliente confiable. La llave de la API de Claude nunca sale del servidor.
 
-## Stack
+## 🛠️ Stack
 
-- **React Native + Expo (SDK 54) + TypeScript (strict)** — runs in Expo Go during development
-- **Expo Router** (file-based navigation) · **NativeWind v4** (Tailwind for RN) · **Reanimated**
-- **Supabase** — Auth, Postgres with RLS, Storage, Edge Functions (Deno), pgvector
-- **Claude API** (`claude-sonnet-5`) — plan generation with structured outputs, streaming chat, vision (food + progress photos)
-- **Voyage AI** (`voyage-3.5`) — embeddings for the coach's knowledge base
-- **i18next** — Spanish (es-MX) first
+| Capa | Tecnología |
+|---|---|
+| App | React Native + Expo SDK 54 · TypeScript estricto · Expo Router · NativeWind v4 · Reanimated |
+| Backend | Supabase — Auth, Postgres con RLS, Storage, Edge Functions (Deno), pgvector |
+| IA | Claude API (`claude-sonnet-5`) — generación con salidas estructuradas, chat con streaming, visión |
+| Embeddings | Voyage AI (`voyage-3.5`) para la base de conocimiento del coach |
+| Datos | Open Food Facts (código de barras) · catálogo curado de ejercicios |
+| i18n | i18next — español (es-MX) primero |
 
-## Getting started
+## 🚀 Cómo correrlo
 
 ```bash
 npm install
-cp .env.example .env   # fill in your Supabase project URL + anon key
+cp .env.example .env   # llena la URL y anon key de tu proyecto Supabase
 npx expo start
 ```
 
-Scan the QR code with [Expo Go](https://expo.dev/go) on your phone (same Wi-Fi network).
+Escanea el QR con [Expo Go](https://expo.dev/go) en tu teléfono (misma red Wi-Fi).
 
-Server-side setup (once): apply `supabase/migrations/` in order, deploy `supabase/functions/coach` with an `ANTHROPIC_API_KEY` secret (plus optional `VOYAGE_API_KEY` for RAG), and ingest the knowledge base with `node scripts/ingest-knowledge.mjs`. To ship a real build, see the [EAS Build guide](docs/eas-build.md).
+Del lado del servidor (una sola vez): aplica las migraciones de `supabase/migrations/` en orden, despliega `supabase/functions/coach` con el secret `ANTHROPIC_API_KEY` (y `VOYAGE_API_KEY` opcional para el RAG), e ingiere la base de conocimiento con `node scripts/ingest-knowledge.mjs`. Para generar una build instalable, sigue la [guía de EAS Build](docs/eas-build.md).
 
-## Project structure
+## 📁 Estructura
 
 ```
 src/
-  app/          # Routes (Expo Router)
-  components/   # Reusable UI
-  features/     # auth, onboarding, diet, workout, coach, progress
-  lib/          # supabase client, LLM provider, external APIs, RAG, i18n
-  theme/        # Design tokens (single source of truth)
-supabase/       # SQL migrations, Edge Functions, knowledge base
-docs/           # EAS Build guide
+  app/          # Rutas (Expo Router)
+  components/   # UI reutilizable
+  features/     # auth, onboarding, dieta, entrenamiento, coach, progreso
+  lib/          # cliente supabase, i18n, APIs externas
+  theme/        # Tokens de diseño (única fuente de verdad)
+supabase/       # Migraciones SQL, Edge Functions, base de conocimiento
+docs/           # Guía de EAS Build
 ```
 
-## Lessons learned
+## 📚 Lecciones aprendidas
 
-- **Charset bugs hide in the transport.** React Native on iOS decodes HTTP bodies without an explicit charset as Latin-1, which garbled every accented character coming out of the Edge Function. The fix that can't regress: serialize responses (and each SSE event) as pure-ASCII JSON, escaping everything else as `\uXXXX` — immune to whatever the decoder assumes.
-- **Streaming in React Native needs `expo/fetch`.** RN's built-in `fetch` can't consume `ReadableStream` bodies; Expo's WinterCG-compliant fetch can, which is what makes token-by-token SSE chat possible in Expo Go.
-- **Model choice is a product decision, not a benchmark.** Haiku misread a strawberry cheesecake as a ham tart; food-photo logging moved to Sonnet and the complaint disappeared. Meanwhile chat quality was fine on either — pay for eyes only where eyes matter.
-- **Adaptive thinking can eat your output budget.** Sonnet 5 spends thinking tokens from `max_tokens`, which silently truncated structured-output JSON. Disabling thinking explicitly on every server call made generation deterministic in cost and shape.
-- **Design for regeneration, not generation.** Users regenerate plans mid-day. Keeping completed items fixed and rebuilding only the remainder (same pattern for shopping lists and food-photo recalculation) turned the most-used feature from destructive to trustworthy.
-- **Rate-limit on the server clock.** Free AI features invite abuse as soon as the device clock is the referee. A rolling 24 h window counted in Postgres (3 generations/day per feature) closed it with one table.
-- **External APIs disappear.** wger removed its exercise-search API mid-project; a curated local catalog of verified IDs proved more reliable than any third-party search. Expo Go likewise dropped remote push — local notifications with the schedule owned by the OS turned out simpler *and* more private.
-- **Guardrails are a feature.** Body-image-safe prompts, opt-in photo analysis, allergy hard rules, injury-aware workouts and "one safe tweak per week" are what make an AI coach shippable, not an afterthought.
+- **Los bugs de charset se esconden en el transporte.** React Native en iOS decodifica cuerpos HTTP sin charset explícito como Latin-1, y cada acento salía garbleado de la Edge Function. La cura definitiva: serializar cada respuesta (y cada evento SSE) como JSON puramente ASCII, escapando todo lo demás como `\uXXXX` — inmune a lo que el decodificador asuma.
+- **Streaming en React Native exige `expo/fetch`.** El `fetch` nativo de RN no consume cuerpos `ReadableStream`; el de Expo (WinterCG) sí — es lo que hace posible el chat token por token dentro de Expo Go.
+- **Los globs de redirect de Supabase no cruzan puntos.** El OAuth de Google moría en silencio porque ningún patrón de la allowlist — ni la URL exacta — hace match con un host tipo IP (`exp://192.168.3.90:8081/...`). Se diagnosticó sondeando GoTrue con `curl` y leyendo el header `Location`; el fix fue un host de redirect sin puntos, porque el navegador intercepta por *esquema*, no por host.
+- **Elegir modelo es decisión de producto, no de benchmark.** Haiku confundió un cheesecake de fresa con una tarta de jamón; la foto de comida se movió a Sonnet y la queja desapareció. El chat funcionaba igual de bien en ambos: paga por buenos ojos solo donde los ojos importan.
+- **El razonamiento adaptativo se puede comer tu presupuesto de salida.** Sonnet 5 gasta tokens de *thinking* del mismo `max_tokens`, lo que truncaba el JSON estructurado en silencio. Deshabilitarlo explícitamente en cada llamada volvió la generación determinista en costo y forma.
+- **Diseña para la regeneración, no para la generación.** La gente regenera su plan a media tarde. Conservar lo completado y reconstruir solo el resto (mismo patrón en la lista del súper y el recálculo por foto) convirtió la función más usada de destructiva a confiable.
+- **Limita en el reloj del servidor.** Una función de IA gratis invita al abuso en cuanto el árbitro es el reloj del dispositivo. Una ventana móvil de 24 h contada en Postgres (3 generaciones/día por función) lo cerró con una sola tabla.
+- **Las APIs externas desaparecen.** wger eliminó su API de búsqueda de ejercicios a medio proyecto; un catálogo local curado de IDs verificados resultó más confiable que cualquier búsqueda de terceros. Expo Go igual eliminó el push remoto — las notificaciones locales, con la agenda en manos del sistema operativo, terminaron siendo más simples *y* más privadas.
+- **Los guardarraíles son una feature.** Prompts seguros con la imagen corporal, análisis de fotos opt-in, alergias como regla dura, entrenamientos que respetan lesiones y "un solo ajuste seguro por semana" son lo que hace publicable a un coach con IA — no una ocurrencia tardía.
 
-## Build history
+## 🗺️ Historial de construcción
 
 <details>
-<summary>18 phases from empty repo to launch polish</summary>
+<summary><b>18 fases: de repo vacío a lanzamiento</b></summary>
 
-| Phase | Scope |
+<br/>
+
+| Fase | Alcance |
 |---|---|
-| 1–2 | Expo + NativeWind + design tokens + welcome; Supabase auth (email/password, OTP recovery, RLS) |
-| 3–4 | Onboarding & profile with TDEE (Mifflin-St Jeor); AI daily plan with structured outputs & partial regeneration |
-| 5–7 | Coach chat with plan context; progress photos (private bucket, vision compare); dark mode + brand shapes |
-| 8–10 | Env-gated donations; CI (lint + typecheck); Open Food Facts + barcode + AI shopping list |
-| 11 | Progress screen: adherence rings, weight trend, streaks, celebrations; meal variety memory in prompts |
-| 12 | Shopping list within budget; barcode scanner; training-equipment picker feeding plan generation |
-| 13 | wger exercise sheets (curated catalog after wger's search API vanished); server-clock generation limits; photo poses |
-| 14 | Coach RAG (pgvector + Voyage AI + source citations); ephemeral food-photo logging |
-| 16 | Local reminders (Expo Notifications); food photo moved to Sonnet after Haiku misread desserts |
-| 17 | Weekly check-in with adherence + RAG + one safe tweak; food photo recalculates the day server-side; scan limits; list cleanup; minute-level reminders |
-| 18 | Launch polish: Google OAuth, SSE chat streaming, portfolio README, [EAS Build guide](docs/eas-build.md) |
+| 1–2 | Expo + NativeWind + tokens de diseño + bienvenida; auth de Supabase (correo/contraseña, recuperación por código, RLS) |
+| 3–4 | Onboarding y perfil con TDEE (Mifflin-St Jeor); plan diario con IA, salidas estructuradas y regeneración parcial |
+| 5–7 | Chat del coach con contexto del plan; fotos de progreso (bucket privado, comparación con visión); modo oscuro |
+| 8–10 | Donaciones opcionales; CI (lint + typecheck); Open Food Facts + código de barras + lista del súper con IA |
+| 11 | Pantalla de progreso: anillos de adherencia, tendencia de peso, rachas, celebraciones; memoria de variedad en los prompts |
+| 12 | Lista del súper dentro del presupuesto; escáner; selector de equipo de entrenamiento que alimenta la generación |
+| 13 | Fichas de ejercicios (catálogo curado tras la desaparición de la API de wger); límites de generación con reloj del servidor; poses de foto |
+| 14 | RAG del coach (pgvector + Voyage AI + citas de fuentes); registro efímero de fotos de comida |
+| 16 | Recordatorios locales (Expo Notifications); foto de comida a Sonnet tras el incidente del cheesecake |
+| 17 | Check-in semanal; la foto de comida recalcula el día del lado del servidor; límites de escaneo; limpieza de lista; minutos en recordatorios |
+| 18 | Pulido de lanzamiento: Google OAuth, streaming SSE del chat, anillo semanal + barra de kcal, README, [guía EAS](docs/eas-build.md), publicación OTA |
 
 </details>
 
-## Health disclaimer
+## ⚠️ Aviso de salud
 
-Sage provides general wellness guidance, **not medical advice**. Always consult a health professional.
+Sage ofrece orientación general de bienestar, **no consejo médico**. Consulta siempre a un profesional de la salud.
 
-## License
+## 📄 Licencia
 
 [MIT](LICENSE)
+
+---
+
+<div align="center">
+
+*Hecho con 🌿 en México*
+
+</div>
