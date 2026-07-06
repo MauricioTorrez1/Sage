@@ -16,13 +16,16 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "@/components/ui/Button";
 import { useAuthStore } from "@/features/auth/store";
+import { calculatePlan } from "@/features/plan/calculations";
 import { useProfileStore } from "@/features/profile/store";
 import { AdherenceRings } from "@/features/progress/AdherenceRings";
+import { KcalBar } from "@/features/progress/KcalBar";
 import {
   currentStreak,
   loadStats,
   todayAdherence,
   useStatsStore,
+  weekAdherence,
 } from "@/features/progress/stats";
 import type { PhotoPose, ProgressPhoto } from "@/features/progress/store";
 import {
@@ -155,6 +158,17 @@ export default function ProgressScreen() {
 
   const today = todayAdherence(days);
   const streak = currentStreak(days);
+  const week = weekAdherence(days);
+  const weekTotal = week.mealsTotal + week.exercisesTotal;
+  const weekClosed =
+    weekTotal > 0 &&
+    week.mealsDone === week.mealsTotal &&
+    week.exercisesDone === week.exercisesTotal;
+  // Objective from the profile; falls back to the plan's own meal total.
+  const kcalTarget =
+    (profile ? calculatePlan(profile)?.calories : null) ??
+    today?.kcalPlanned ??
+    0;
   const todayTotal = today ? today.mealsTotal + today.exercisesTotal : 0;
   const todayDone = today ? today.mealsDone + today.exercisesDone : 0;
   const motivationKey =
@@ -228,6 +242,10 @@ export default function ProgressScreen() {
                             exercisesTotal={today.exercisesTotal}
                           />
                         </View>
+                        <KcalBar
+                          consumed={today.kcalConsumed}
+                          target={kcalTarget}
+                        />
                         <Text className="mt-4 font-nunito text-sm text-ink-muted dark:text-ink-invmuted">
                           {t(motivationKey)}
                         </Text>
@@ -242,6 +260,37 @@ export default function ProgressScreen() {
                         {t("progress.streak", { count: streak })}
                       </Text>
                     ) : null}
+                  </View>
+                  <View className="mb-4 rounded-card bg-white p-5 dark:bg-nightSurface">
+                    <Text className="font-nunito-bold text-lg text-ink dark:text-ink-inverse">
+                      {t("progress.weekTitle")}
+                    </Text>
+                    {weekTotal > 0 ? (
+                      <>
+                        <View className="mt-4">
+                          <AdherenceRings
+                            mealsDone={week.mealsDone}
+                            mealsTotal={week.mealsTotal}
+                            exercisesDone={week.exercisesDone}
+                            exercisesTotal={week.exercisesTotal}
+                          />
+                        </View>
+                        <Text className="mt-4 font-nunito text-sm text-ink-muted dark:text-ink-invmuted">
+                          {t("progress.weekComplete", {
+                            done: week.daysComplete,
+                          })}
+                        </Text>
+                        {weekClosed ? (
+                          <Text className="mt-2 font-nunito-semibold text-sm text-terracotta-600 dark:text-terracotta-300">
+                            {t("progress.weekPerfect")}
+                          </Text>
+                        ) : null}
+                      </>
+                    ) : (
+                      <Text className="mt-2 font-nunito text-sm text-ink-muted dark:text-ink-invmuted">
+                        {t("progress.weekEmpty")}
+                      </Text>
+                    )}
                   </View>
                   <View className="mb-4 rounded-card bg-white p-5 dark:bg-nightSurface">
                     <Text className="mb-3 font-nunito-bold text-lg text-ink dark:text-ink-inverse">

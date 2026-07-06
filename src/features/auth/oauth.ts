@@ -24,13 +24,23 @@ async function createSessionFromUrl(url: string): Promise<OAuthResult> {
   const params = fragmentParams(url);
   const accessToken = params.get("access_token");
   const refreshToken = params.get("refresh_token");
-  if (!accessToken || !refreshToken) return "failed";
+  if (!accessToken || !refreshToken) {
+    // Log the shape of what came back (never the tokens) so a misconfigured
+    // redirect shows up in the Metro console instead of failing silently.
+    console.warn(
+      "[oauth] redirect sin tokens:",
+      url.split("#")[0],
+      params.get("error_description") ?? params.get("error") ?? "(sin error)",
+    );
+    return "failed";
+  }
 
   // The auth listener picks the session up and routes into the app.
   const { error } = await supabase.auth.setSession({
     access_token: accessToken,
     refresh_token: refreshToken,
   });
+  if (error) console.warn("[oauth] setSession falló:", error.message);
   return error ? "failed" : "success";
 }
 
@@ -58,14 +68,19 @@ export function useAuthDeepLinks() {
  */
 export async function signInWithGoogle(): Promise<OAuthResult> {
   const redirectTo = Linking.createURL("auth-callback");
+  console.log("[oauth] redirectTo:", redirectTo);
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: { redirectTo, skipBrowserRedirect: true },
   });
-  if (error || !data?.url) return "failed";
+  if (error || !data?.url) {
+    console.warn("[oauth] signInWithOAuth falló:", error?.message);
+    return "failed";
+  }
 
   const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+  console.log("[oauth] browser result:", result.type);
   if (result.type === "cancel" || result.type === "dismiss") {
     return "cancelled";
   }

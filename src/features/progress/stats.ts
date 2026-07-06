@@ -11,6 +11,10 @@ export type DayAdherence = {
   mealsTotal: number;
   exercisesDone: number;
   exercisesTotal: number;
+  /** kcal of the meals already checked off. */
+  kcalConsumed: number;
+  /** kcal of every meal in the plan (fallback target when profile is incomplete). */
+  kcalPlanned: number;
 };
 
 export type WeightPoint = {
@@ -71,6 +75,10 @@ export async function loadStats() {
       mealsTotal: meals.length,
       exercisesDone: exercises.filter((item) => item.done).length,
       exercisesTotal: exercises.length,
+      kcalConsumed: meals
+        .filter((item) => item.done)
+        .reduce((sum, item) => sum + (item.kcal ?? 0), 0),
+      kcalPlanned: meals.reduce((sum, item) => sum + (item.kcal ?? 0), 0),
     };
   });
 
@@ -118,6 +126,41 @@ export function currentStreak(days: DayAdherence[]): number {
     }
   }
   return streak;
+}
+
+export type WeekAdherence = {
+  mealsDone: number;
+  mealsTotal: number;
+  exercisesDone: number;
+  exercisesTotal: number;
+  /** Days of the last 7 with every item checked off. */
+  daysComplete: number;
+  /** Days of the last 7 that have a plan at all. */
+  daysWithPlan: number;
+};
+
+/** Aggregated adherence over the last 7 days (today included). */
+export function weekAdherence(days: DayAdherence[]): WeekAdherence {
+  const byDate = new Map(days.map((day) => [day.date, day]));
+  const week: WeekAdherence = {
+    mealsDone: 0,
+    mealsTotal: 0,
+    exercisesDone: 0,
+    exercisesTotal: 0,
+    daysComplete: 0,
+    daysWithPlan: 0,
+  };
+  for (let daysAgo = 0; daysAgo < 7; daysAgo++) {
+    const day = byDate.get(dateKeyDaysAgo(daysAgo));
+    if (!day) continue;
+    week.daysWithPlan++;
+    week.mealsDone += day.mealsDone;
+    week.mealsTotal += day.mealsTotal;
+    week.exercisesDone += day.exercisesDone;
+    week.exercisesTotal += day.exercisesTotal;
+    if (isComplete(day)) week.daysComplete++;
+  }
+  return week;
 }
 
 /** Clears cached stats; call on sign-out. */

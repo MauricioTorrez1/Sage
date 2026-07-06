@@ -1,5 +1,5 @@
-import * as Linking from "expo-linking";
 import { router } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, Text } from "react-native";
@@ -39,7 +39,8 @@ import { setThemePreference, useThemeStore } from "@/features/theme/store";
 import { fieldErrors } from "@/lib/forms";
 
 // Donations are optional and never gate anything; the card only renders
-// when a URL is configured (Ko-fi, BuyMeACoffee, etc.).
+// when a URL is configured (Mercado Pago, Ko-fi, etc.). Opened with the
+// in-app browser: RN's Linking.openURL rejects https on some iOS setups.
 const DONATION_URL = process.env.EXPO_PUBLIC_DONATION_URL;
 
 export default function ProfileScreen() {
@@ -325,7 +326,7 @@ export default function ProfileScreen() {
       {DONATION_URL ? (
         <Pressable
           accessibilityRole="link"
-          onPress={() => Linking.openURL(DONATION_URL)}
+          onPress={() => WebBrowser.openBrowserAsync(DONATION_URL).catch(() => {})}
           className="mt-6 items-center rounded-card bg-sage-50 p-5 dark:bg-sage-900"
           style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
         >
