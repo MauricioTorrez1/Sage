@@ -7,6 +7,12 @@
     "icon": "./assets/images/icon.png",
     "scheme": "sage",
     "userInterfaceStyle": "automatic",
+    "updates": {
+      "url": "https://u.expo.dev/a633ce7d-8f42-4edb-9c20-b7cade25c901"
+    },
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
     "ios": {
       "bundleIdentifier": "mx.sage.app",
       "supportsTablet": false
@@ -19,7 +25,10 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "output": "static",
@@ -51,6 +60,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "a633ce7d-8f42-4edb-9c20-b7cade25c901"
+      }
+    },
+    "owner": "mauriciotorrez"
   }
 }
