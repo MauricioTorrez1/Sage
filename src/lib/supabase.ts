@@ -13,6 +13,11 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
+// For the rare call that needs a raw fetch instead of the client (e.g. the
+// streaming coach chat — supabase-js can't consume SSE bodies).
+export const SUPABASE_URL = supabaseUrl;
+export const SUPABASE_ANON_KEY = supabaseAnonKey;
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     // On web, let supabase-js use its SSR-safe localStorage adapter;

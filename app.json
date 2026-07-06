@@ -7,7 +7,12 @@
     "icon": "./assets/images/icon.png",
     "scheme": "sage",
     "userInterfaceStyle": "automatic",
+    "ios": {
+      "bundleIdentifier": "mx.sage.app",
+      "supportsTablet": false
+    },
     "android": {
+      "package": "mx.sage.app",
       "adaptiveIcon": {
         "backgroundColor": "#E5ECE6",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

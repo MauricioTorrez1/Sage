@@ -5,6 +5,7 @@ import { Text, View } from "react-native";
 
 import { AuthLayout } from "@/components/ui/AuthLayout";
 import { Button } from "@/components/ui/Button";
+import { GoogleButton } from "@/components/ui/GoogleButton";
 import { TextField } from "@/components/ui/TextField";
 import { authErrorKey } from "@/features/auth/errors";
 import { fieldErrors } from "@/lib/forms";
@@ -69,6 +70,8 @@ export default function LoginScreen() {
       ) : null}
 
       <Button title={t("auth.login")} onPress={handleLogin} loading={loading} />
+
+      <GoogleButton onError={(key) => setFormError(t(key))} />
 
       <Link href="/forgot-password" asChild>
         <Text className="mt-4 text-center font-nunito-semibold text-sm text-sage-700 dark:text-sage-300">

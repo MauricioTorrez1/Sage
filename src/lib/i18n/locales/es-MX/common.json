@@ -56,6 +56,7 @@
       "samePassword": "La nueva contraseña debe ser diferente a la anterior",
       "network": "Sin conexión. Revisa tu internet e intenta de nuevo.",
       "generic": "Algo salió mal. Inténtalo de nuevo en un momento.",
+      "google": "No se pudo entrar con Google. Intenta de nuevo.",
       "googleNotConfigured": "El inicio con Google aún no está disponible. Usa tu correo por ahora."
     }
   },

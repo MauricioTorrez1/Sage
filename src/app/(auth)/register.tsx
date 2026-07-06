@@ -5,6 +5,7 @@ import { Text, View } from "react-native";
 
 import { AuthLayout } from "@/components/ui/AuthLayout";
 import { Button } from "@/components/ui/Button";
+import { GoogleButton } from "@/components/ui/GoogleButton";
 import { TextField } from "@/components/ui/TextField";
 import { authErrorKey } from "@/features/auth/errors";
 import { fieldErrors } from "@/lib/forms";
@@ -103,6 +104,8 @@ export default function RegisterScreen() {
         onPress={handleRegister}
         loading={loading}
       />
+
+      <GoogleButton onError={(key) => setFormError(t(key))} />
 
       <View className="mt-8 flex-row justify-center">
         <Text className="font-nunito text-base text-ink-muted dark:text-ink-invmuted">

@@ -1,6 +1,7 @@
 // Sage coach — Supabase Edge Function (Deno).
 // Modes, all JWT-verified and RLS-scoped to the calling user:
 //   { type: "chat", messages }   → chat reply; persists the turn to chat_messages
+//                                   (with stream: true, replies via SSE deltas)
 //   { type: "daily_plan", date }  → generates today's meals+exercises checklist
 //                                   (structured outputs) and upserts daily_plans;
 //                                   completed items are kept, only the rest is rebuilt
@@ -620,14 +621,8 @@ async function recordGeneration(
   if (error) console.error("generation record error:", error);
 }
 
-async function handleChat(
-  supabase: SupabaseClient,
-  anthropic: Anthropic,
-  userId: string,
-  profile: Profile,
-  messages: unknown,
-  localDate: unknown,
-) {
+/** Validates the chat payload; returns the messages or null when malformed. */
+function validChatMessages(messages: unknown): ChatMessage[] | null {
   if (
     !Array.isArray(messages) ||
     messages.length === 0 ||
@@ -641,6 +636,35 @@ async function handleChat(
     ) ||
     messages[messages.length - 1].role !== "user"
   ) {
+    return null;
+  }
+  return messages;
+}
+
+/** Persists a completed chat turn; a failure shouldn't eat the reply. */
+async function persistChatTurn(
+  supabase: SupabaseClient,
+  userId: string,
+  question: string,
+  reply: string,
+) {
+  const { error } = await supabase.from("chat_messages").insert([
+    { user_id: userId, role: "user", content: question },
+    { user_id: userId, role: "assistant", content: reply },
+  ]);
+  if (error) console.error("chat persist error:", error);
+}
+
+async function handleChat(
+  supabase: SupabaseClient,
+  anthropic: Anthropic,
+  userId: string,
+  profile: Profile,
+  rawMessages: unknown,
+  localDate: unknown,
+) {
+  const messages = validChatMessages(rawMessages);
+  if (!messages) {
     return json({ error: "bad_request" }, 400);
   }
 
@@ -663,20 +687,98 @@ async function handleChat(
   }
 
   const reply = extractText(response);
-
-  // Persist the completed turn. RLS scopes the insert to this user; a
-  // failure here shouldn't eat the reply the user is waiting for.
-  const { error: insertError } = await supabase.from("chat_messages").insert([
-    {
-      user_id: userId,
-      role: "user",
-      content: messages[messages.length - 1].content,
-    },
-    { user_id: userId, role: "assistant", content: reply },
-  ]);
-  if (insertError) console.error("chat persist error:", insertError);
+  await persistChatTurn(supabase, userId, lastQuestion, reply);
 
   return json({ reply });
+}
+
+/**
+ * Streaming chat (body.stream === true): same prompt as handleChat, but the
+ * reply goes out as Server-Sent Events while the model generates it —
+ *   data: {"delta":"..."}   text as it arrives
+ *   data: {"done":true}     the turn finished and was persisted
+ *   data: {"error":"..."}   busy | refused | internal (terminal)
+ * Every event's JSON is ASCII-escaped (see toAsciiJson), so the client can
+ * decode the bytes safely no matter what charset it assumes.
+ */
+async function handleChatStream(
+  supabase: SupabaseClient,
+  anthropic: Anthropic,
+  userId: string,
+  profile: Profile,
+  rawMessages: unknown,
+  localDate: unknown,
+) {
+  const messages = validChatMessages(rawMessages);
+  if (!messages) {
+    return json({ error: "bad_request" }, 400);
+  }
+
+  const lastQuestion = messages[messages.length - 1].content;
+  const [context, knowledge] = await Promise.all([
+    chatContext(supabase, localDate),
+    retrieveKnowledge(supabase, lastQuestion),
+  ]);
+
+  const encoder = new TextEncoder();
+  const sse = (payload: unknown) =>
+    encoder.encode(`data: ${toAsciiJson(payload)}\n\n`);
+
+  const body = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      // Errors here happen after the 200 header is sent, so they travel as
+      // terminal SSE events instead of HTTP statuses.
+      try {
+        const events = await anthropic.messages.create({
+          model: MODEL,
+          max_tokens: CHAT_MAX_TOKENS,
+          thinking: THINKING,
+          system: chatSystemPrompt(profile, context + knowledge),
+          messages,
+          stream: true,
+        });
+
+        let reply = "";
+        let refused = false;
+        for await (const event of events) {
+          if (
+            event.type === "content_block_delta" &&
+            event.delta.type === "text_delta"
+          ) {
+            reply += event.delta.text;
+            controller.enqueue(sse({ delta: event.delta.text }));
+          } else if (
+            event.type === "message_delta" &&
+            event.delta.stop_reason === "refusal"
+          ) {
+            refused = true;
+          }
+        }
+
+        if (refused || reply.length === 0) {
+          controller.enqueue(sse({ error: "refused" }));
+        } else {
+          await persistChatTurn(supabase, userId, lastQuestion, reply);
+          controller.enqueue(sse({ done: true }));
+        }
+      } catch (error) {
+        const busy = error instanceof Anthropic.RateLimitError ||
+          (error instanceof Anthropic.APIError && error.status === 529);
+        if (!busy) console.error("chat stream error:", error);
+        controller.enqueue(sse({ error: busy ? "busy" : "internal" }));
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(body, {
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache",
+    },
+  });
 }
 
 async function handleDailyPlan(
@@ -1480,6 +1582,16 @@ Deno.serve(async (req) => {
 
     // Default to chat for backwards compatibility with older app builds.
     const type = body.type ?? "chat";
+    if (type === "chat" && body.stream === true) {
+      return await handleChatStream(
+        supabase,
+        anthropic,
+        userData.user.id,
+        profile as Profile,
+        body.messages,
+        body.date,
+      );
+    }
     if (type === "chat") {
       return await handleChat(
         supabase,

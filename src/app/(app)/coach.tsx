@@ -47,6 +47,7 @@ export default function CoachScreen() {
   const { t } = useTranslation();
   const messages = useCoachStore((state) => state.messages);
   const sending = useCoachStore((state) => state.sending);
+  const streaming = useCoachStore((state) => state.streaming);
   const errorKey = useCoachStore((state) => state.errorKey);
   const historyLoaded = useCoachStore((state) => state.historyLoaded);
   const [draft, setDraft] = useState("");
@@ -103,7 +104,8 @@ export default function CoachScreen() {
           ListHeaderComponent={
             // With inverted lists the "header" renders at the bottom,
             // right above the input — where the typing indicator belongs.
-            sending ? (
+            // Once deltas start streaming, the growing bubble replaces it.
+            sending && !streaming ? (
               <View className="mb-2 flex-row items-center gap-2 self-start rounded-card rounded-bl-md bg-white px-4 py-3 dark:bg-nightSurface">
                 <ActivityIndicator size="small" color={tokens.colors.sage[500]} />
                 <Text className="font-nunito text-sm text-ink-muted dark:text-ink-invmuted">
