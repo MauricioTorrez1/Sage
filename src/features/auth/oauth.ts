@@ -66,8 +66,22 @@ export function useAuthDeepLinks() {
  * Expo Go, sage://auth-callback in builds) must be allowlisted in Supabase
  * Auth → URL Configuration, and the Google provider must be enabled there.
  */
+/**
+ * In Expo Go, Linking.createURL yields exp://<LAN-IP>:8081/… — and GoTrue's
+ * redirect allowlist globs can't cross the dots in an IP host, so no pattern
+ * ever matches it (verified empirically: exp://foo passes, exp://1.2.3.4
+ * never does). The browser auth session intercepts the redirect by SCHEME
+ * alone, so a dotless marker host works just as well and matches the
+ * allowlisted exp://** — the URL is only a token carrier, never routed.
+ * Real builds get sage://auth-callback, which has no dots and needs no fix.
+ */
+function oauthRedirectUrl() {
+  const url = Linking.createURL("auth-callback");
+  return url.startsWith("exp://") ? "exp://auth-callback" : url;
+}
+
 export async function signInWithGoogle(): Promise<OAuthResult> {
-  const redirectTo = Linking.createURL("auth-callback");
+  const redirectTo = oauthRedirectUrl();
   console.log("[oauth] redirectTo:", redirectTo);
 
   const { data, error } = await supabase.auth.signInWithOAuth({
