@@ -13,6 +13,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 
+import { useAuthDeepLinks } from "@/features/auth/oauth";
 import { startAuthListener, useAuthStore } from "@/features/auth/store";
 import { initReminders } from "@/features/reminders/store";
 import { loadThemePreference } from "@/features/theme/store";
@@ -22,6 +23,9 @@ SplashScreen.preventAutoHideAsync();
 startAuthListener();
 
 export default function RootLayout() {
+  // Catches OAuth redirects that arrive as deep links (see oauth.ts).
+  useAuthDeepLinks();
+
   useEffect(() => {
     loadThemePreference();
     initReminders();

@@ -1,5 +1,6 @@
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
+import { useEffect } from "react";
 
 import { supabase } from "@/lib/supabase";
 
@@ -12,6 +13,40 @@ export type OAuthResult = "success" | "cancelled" | "failed";
 function fragmentParams(url: string) {
   const hashIndex = url.indexOf("#");
   return new URLSearchParams(hashIndex >= 0 ? url.slice(hashIndex + 1) : "");
+}
+
+/**
+ * Turns a redirect URL carrying Supabase auth tokens into a session.
+ * Returns "failed" on a malformed/token-less URL, so callers can tell a
+ * broken redirect apart from a successful sign-in.
+ */
+async function createSessionFromUrl(url: string): Promise<OAuthResult> {
+  const params = fragmentParams(url);
+  const accessToken = params.get("access_token");
+  const refreshToken = params.get("refresh_token");
+  if (!accessToken || !refreshToken) return "failed";
+
+  // The auth listener picks the session up and routes into the app.
+  const { error } = await supabase.auth.setSession({
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  });
+  return error ? "failed" : "success";
+}
+
+/**
+ * Safety net for redirects that arrive as a deep link instead of through
+ * openAuthSessionAsync — e.g. when the exp:// callback makes Expo Go reload
+ * the project, killing the promise that was waiting for it. Mounted once at
+ * the root; quietly ignores every URL that carries no auth tokens.
+ */
+export function useAuthDeepLinks() {
+  const url = Linking.useURL();
+  useEffect(() => {
+    if (url && url.includes("access_token=")) {
+      void createSessionFromUrl(url);
+    }
+  }, [url]);
 }
 
 /**
@@ -36,15 +71,5 @@ export async function signInWithGoogle(): Promise<OAuthResult> {
   }
   if (result.type !== "success") return "failed";
 
-  const params = fragmentParams(result.url);
-  const accessToken = params.get("access_token");
-  const refreshToken = params.get("refresh_token");
-  if (!accessToken || !refreshToken) return "failed";
-
-  // The auth listener picks the session up and routes into the app.
-  const { error: sessionError } = await supabase.auth.setSession({
-    access_token: accessToken,
-    refresh_token: refreshToken,
-  });
-  return sessionError ? "failed" : "success";
+  return createSessionFromUrl(result.url);
 }

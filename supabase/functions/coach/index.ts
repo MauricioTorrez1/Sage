@@ -329,6 +329,7 @@ Reglas:
 - 2 a 4 ejercicios/actividades realistas para su nivel; el entrenamiento completo debe caber en sus minutos disponibles y hacerse en su lugar de entrenamiento (si entrena en casa, sin máquinas de gimnasio).
 - Usa SOLO el equipo disponible del perfil (los ejercicios de peso corporal siempre valen); si no indicó equipo, asume lo típico de su lugar de entrenamiento.
 - Nombra cada ejercicio con su nombre común y estándar en español, mencionando el equipo en el título cuando aplique (p. ej. "Sentadilla goblet", "Zancadas con mancuernas", "Remo con liga", "Plancha").
+- Cada ejercicio va como elemento SEPARADO del arreglo "exercises" — un solo ejercicio por elemento, con sus propias series/repeticiones en su "detail". JAMÁS agrupes la rutina completa (ni dos ejercicios) en un mismo elemento.
 - Respeta SIEMPRE sus lesiones o limitaciones físicas: jamás incluyas ejercicios contraindicados; usa alternativas seguras que no carguen la zona afectada.
 - "title" corto (máx 6 palabras); "detail" con porciones o series/repeticiones concretas, en una línea.
 - Nunca planes extremos: nada de ayunos agresivos ni ejercicio excesivo.`;
