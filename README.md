@@ -34,10 +34,28 @@
 
 ## 📱 Capturas
 
-> 🚧 *Próximamente — la app está en uso diario y las capturas llegan con la primera gran actualización.*
+<table>
+  <tr>
+    <td align="center" width="25%">
+      <img src="assets/screenshots/home.jpeg" width="200" alt="Inicio — anillo del día y macros" /><br/>
+      <sub><b>Inicio</b><br/>Anillo «Tu día de hoy», macros y plan en gramos</sub>
+    </td>
+    <td align="center" width="25%">
+      <img src="assets/screenshots/home1.jpeg" width="200" alt="Plan del día con pesos y accesos" /><br/>
+      <sub><b>Plan del día</b><br/>Ejercicios con kg, enfriamiento y accesos</sub>
+    </td>
+    <td align="center" width="25%">
+      <img src="assets/screenshots/myprogress.jpeg" width="200" alt="Tu progreso" /><br/>
+      <sub><b>Tu progreso</b><br/>Anillo semanal, check-in y meta visual</sub>
+    </td>
+    <td align="center" width="25%">
+      <img src="assets/screenshots/market.jpeg" width="200" alt="Súper y alimentos" /><br/>
+      <sub><b>Súper</b><br/>Lista con presupuesto, escáner y foto de comida</sub>
+    </td>
+  </tr>
+</table>
 
-<!-- TODO(screenshots): assets/screenshots/ → home, coach (streaming), progreso,
-     check-in, foto de comida, súper, onboarding, dark mode + GIF del chat. -->
+<sub>Tema oscuro automático según la hora. Capturas de la app en uso real.</sub>
 
 ## 🧭 Arquitectura
 
