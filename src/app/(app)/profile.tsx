@@ -1,11 +1,11 @@
 import { router } from "expo-router";
-import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, Text } from "react-native";
+import { Text, View } from "react-native";
 
 import { AuthLayout } from "@/components/ui/AuthLayout";
 import { Button } from "@/components/ui/Button";
+import { DonateButton } from "@/components/ui/DonateButton";
 import { MultiOptionGroup } from "@/components/ui/MultiOptionGroup";
 import { OptionGroup } from "@/components/ui/OptionGroup";
 import { TextField } from "@/components/ui/TextField";
@@ -34,20 +34,12 @@ import type {
   TrainingEquipment,
   TrainingPlace,
 } from "@/features/profile/types";
-import type { ThemePreference } from "@/features/theme/store";
-import { setThemePreference, useThemeStore } from "@/features/theme/store";
 import { fieldErrors } from "@/lib/forms";
-
-// Donations are optional and never gate anything; the card only renders
-// when a URL is configured (Mercado Pago, Ko-fi, etc.). Opened with the
-// in-app browser: RN's Linking.openURL rejects https on some iOS setups.
-const DONATION_URL = process.env.EXPO_PUBLIC_DONATION_URL;
 
 export default function ProfileScreen() {
   const { t } = useTranslation();
   const session = useAuthStore((state) => state.session);
   const profile = useProfileStore((state) => state.profile);
-  const themePreference = useThemeStore((state) => state.preference);
 
   const [displayName, setDisplayName] = useState(profile?.display_name ?? "");
   const [age, setAge] = useState(profile?.age ? String(profile.age) : "");
@@ -147,6 +139,9 @@ export default function ProfileScreen() {
       title={t("profile.title")}
       subtitle={t("profile.subtitle")}
     >
+      <View className="mb-6 items-center">
+        <DonateButton compact />
+      </View>
       <TextField
         label={t("onboarding.name")}
         placeholder={t("onboarding.namePlaceholder")}
@@ -290,21 +285,15 @@ export default function ProfileScreen() {
         maxLength={500}
       />
 
-      {/* Device-local; applies immediately, no save needed. */}
-      <OptionGroup<ThemePreference>
-        label={t("profile.theme")}
-        options={[
-          {
-            value: "system",
-            label: t("profile.themeSystem"),
-            description: t("profile.themeSystemDesc"),
-          },
-          { value: "light", label: t("profile.themeLight") },
-          { value: "dark", label: t("profile.themeDark") },
-        ]}
-        value={themePreference}
-        onChange={setThemePreference}
-      />
+      {/* Theme now follows the local clock automatically (no manual control). */}
+      <View className="mb-4 rounded-card bg-white p-4 dark:bg-nightSurface">
+        <Text className="font-nunito-bold text-base text-ink dark:text-ink-inverse">
+          {t("profile.theme")}
+        </Text>
+        <Text className="mt-1 font-nunito text-sm text-ink-muted dark:text-ink-invmuted">
+          {t("profile.themeAuto")}
+        </Text>
+      </View>
 
       {/* Device-local; applies immediately, no save needed. */}
       <RemindersCard />
@@ -323,21 +312,6 @@ export default function ProfileScreen() {
         disabled={saving}
       />
 
-      {DONATION_URL ? (
-        <Pressable
-          accessibilityRole="link"
-          onPress={() => WebBrowser.openBrowserAsync(DONATION_URL).catch(() => {})}
-          className="mt-6 items-center rounded-card bg-sage-50 p-5 dark:bg-sage-900"
-          style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
-        >
-          <Text className="font-nunito-bold text-base text-sage-800 dark:text-sage-100">
-            {t("profile.donateTitle")}
-          </Text>
-          <Text className="mt-1 text-center font-nunito text-sm text-ink-muted dark:text-ink-invmuted">
-            {t("profile.donateSubtitle")}
-          </Text>
-        </Pressable>
-      ) : null}
     </AuthLayout>
   );
 }

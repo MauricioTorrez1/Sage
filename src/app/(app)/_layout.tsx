@@ -6,6 +6,8 @@ import { useAuthStore } from "@/features/auth/store";
 import { resetCoach } from "@/features/coach/store";
 import { resetShopping } from "@/features/food/shopping-store";
 import { resetDailyPlan } from "@/features/plan/daily-store";
+import { resetGoal } from "@/features/progress/goal-store";
+import { resetHistory } from "@/features/progress/history-store";
 import { resetStats } from "@/features/progress/stats";
 import { resetProgress } from "@/features/progress/store";
 import { resetWeeklyReview } from "@/features/progress/weekly-store";
@@ -36,6 +38,8 @@ export default function AppLayout() {
       resetStats();
       resetShopping();
       resetWeeklyReview();
+      resetGoal();
+      resetHistory();
     };
   }, [userId]);
 
@@ -59,6 +63,7 @@ export default function AppLayout() {
         <Stack.Screen name="coach" />
         <Stack.Screen name="profile" />
         <Stack.Screen name="progress" />
+        <Stack.Screen name="history" />
         <Stack.Screen name="food" />
       </Stack.Protected>
     </Stack>

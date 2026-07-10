@@ -1,17 +1,20 @@
 import { router } from "expo-router";
-import { useColorScheme } from "nativewind";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AnimatedBlobs } from "@/components/ui/AnimatedBlobs";
 import { Button } from "@/components/ui/Button";
+import { DonateButton } from "@/components/ui/DonateButton";
 import { calculatePlan } from "@/features/plan/calculations";
 import { DailyPlanCard } from "@/features/plan/DailyPlanCard";
+import { AdherenceRings } from "@/features/progress/AdherenceRings";
+import { KcalBar } from "@/features/progress/KcalBar";
 import { ProgressCard } from "@/features/progress/ProgressCard";
+import { loadStats, todayAdherence, useStatsStore } from "@/features/progress/stats";
 import { useProfileStore } from "@/features/profile/store";
 import type { Goal } from "@/features/profile/types";
-import { setThemePreference } from "@/features/theme/store";
 import { supabase } from "@/lib/supabase";
 
 const GOAL_LABEL_KEY: Record<Goal, string> = {
@@ -35,10 +38,20 @@ function MacroTile({ label, grams }: { label: string; grams: number }) {
 
 export default function HomeScreen() {
   const { t } = useTranslation();
-  const { colorScheme } = useColorScheme();
   const profile = useProfileStore((state) => state.profile);
   const plan = profile ? calculatePlan(profile) : null;
-  const dark = colorScheme === "dark";
+
+  const days = useStatsStore((state) => state.days);
+  const statsLoaded = useStatsStore((state) => state.loaded);
+  const today = todayAdherence(days);
+
+  useEffect(() => {
+    loadStats();
+  }, []);
+
+  // Objective from the profile; falls back to the plan's own meal total.
+  const kcalTarget =
+    (plan ? plan.calories : null) ?? today?.kcalPlanned ?? 0;
 
   return (
     <SafeAreaView className="flex-1 bg-cream dark:bg-night">
@@ -55,15 +68,6 @@ export default function HomeScreen() {
           </Text>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={t("home.toggleTheme")}
-            onPress={() => setThemePreference(dark ? "light" : "dark")}
-            className="ml-3 h-10 w-10 items-center justify-center rounded-full bg-sage-100 dark:bg-sage-800"
-            style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
-          >
-            <Text>{dark ? "☀️" : "🌙"}</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
             accessibilityLabel={t("home.editProfile")}
             onPress={() => router.push("/profile")}
             className="ml-3 h-10 w-10 items-center justify-center rounded-full bg-sage-100 dark:bg-sage-800"
@@ -72,46 +76,53 @@ export default function HomeScreen() {
             <Text>✏️</Text>
           </Pressable>
         </View>
-        {profile?.goal ? (
-          <View className="mt-2 self-start rounded-full bg-sage-100 px-3 py-1 dark:bg-sage-800">
-            <Text className="font-nunito-semibold text-sm text-sage-700 dark:text-sage-200">
-              {t(GOAL_LABEL_KEY[profile.goal])}
-            </Text>
-          </View>
-        ) : null}
-
-        {plan ? (
-          <View className="mt-6 rounded-card bg-white p-5 dark:bg-nightSurface">
-            <Text className="font-nunito-bold text-lg text-ink dark:text-ink-inverse">
-              {t("plan.title")}
-            </Text>
-            <View className="mt-3 flex-row items-baseline">
-              <Text className="font-nunito-extrabold text-5xl leading-[56px] text-terracotta-500">
-                {plan.calories}
-              </Text>
-              <Text className="ml-2 font-nunito-semibold text-base text-ink-muted dark:text-ink-invmuted">
-                {t("plan.kcalPerDay")}
+        <View className="mt-2 flex-row items-center justify-between">
+          {profile?.goal ? (
+            <View className="self-start rounded-full bg-sage-100 px-3 py-1 dark:bg-sage-800">
+              <Text className="font-nunito-semibold text-sm text-sage-700 dark:text-sage-200">
+                {t(GOAL_LABEL_KEY[profile.goal])}
               </Text>
             </View>
+          ) : (
+            <View />
+          )}
+          <DonateButton compact />
+        </View>
+
+        <View className="mt-6 rounded-card bg-white p-5 dark:bg-nightSurface">
+          <Text className="font-nunito-bold text-lg text-ink dark:text-ink-inverse">
+            {t("progress.todayTitle")}
+          </Text>
+          {statsLoaded && today ? (
+            <>
+              <View className="mt-4">
+                <AdherenceRings
+                  mealsDone={today.mealsDone}
+                  mealsTotal={today.mealsTotal}
+                  exercisesDone={today.exercisesDone}
+                  exercisesTotal={today.exercisesTotal}
+                />
+              </View>
+              <KcalBar consumed={today.kcalConsumed} target={kcalTarget} />
+            </>
+          ) : (
+            <Text className="mt-2 font-nunito text-sm text-ink-muted dark:text-ink-invmuted">
+              {t("progress.noPlanToday")}
+            </Text>
+          )}
+
+          {plan ? (
             <View className="mt-4 flex-row gap-2">
-              <MacroTile
-                label={t("plan.protein")}
-                grams={plan.proteinG}
-              />
+              <MacroTile label={t("plan.protein")} grams={plan.proteinG} />
               <MacroTile label={t("plan.fat")} grams={plan.fatG} />
               <MacroTile label={t("plan.carbs")} grams={plan.carbsG} />
             </View>
+          ) : (
             <Text className="mt-4 font-nunito text-xs text-ink-soft dark:text-ink-invmuted">
-              {t("plan.method")}
-            </Text>
-          </View>
-        ) : (
-          <View className="mt-6 rounded-card bg-white p-5 dark:bg-nightSurface">
-            <Text className="font-nunito text-base text-ink-muted dark:text-ink-invmuted">
               {t("plan.incomplete")}
             </Text>
-          </View>
-        )}
+          )}
+        </View>
 
         <DailyPlanCard />
 

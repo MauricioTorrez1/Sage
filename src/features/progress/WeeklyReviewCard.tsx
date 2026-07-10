@@ -18,7 +18,11 @@ const GENERATING_MESSAGES = [
   "review.generating3",
 ] as const;
 
-/** Weekly check-in: adherence recap + Sage's warm feedback and one safe tweak. */
+/**
+ * Weekly check-in: one per week. The form generates it; once done, the recap
+ * lives in the Historial (not here), keeping "Tu progreso" clean. The card then
+ * just confirms it's saved and won't allow another until next week.
+ */
 export function WeeklyReviewCard() {
   const { t } = useTranslation();
   const review = useWeeklyReviewStore((state) => state.review);
@@ -29,18 +33,10 @@ export function WeeklyReviewCard() {
 
   const [feeling, setFeeling] = useState("");
   const [includePhotos, setIncludePhotos] = useState(false);
-  const [editing, setEditing] = useState(false);
 
   useEffect(() => {
     loadWeeklyReview();
   }, []);
-
-  async function handleGenerate() {
-    await generateWeeklyReview(feeling.trim(), includePhotos);
-    setEditing(false);
-  }
-
-  const showForm = !review || editing;
 
   return (
     <View className="mb-4 rounded-card bg-white p-5 dark:bg-nightSurface">
@@ -51,78 +47,47 @@ export function WeeklyReviewCard() {
         {t("review.subtitle")}
       </Text>
 
-      {!loaded ? null : (
+      {!loaded ? null : review ? (
+        // Already done this week: the recap is in the Historial; keep it clean.
+        <Text className="font-nunito text-sm text-ink-muted dark:text-ink-invmuted">
+          {t("review.savedToHistory")}
+        </Text>
+      ) : generating ? (
+        <GeneratingBar messageKeys={GENERATING_MESSAGES} />
+      ) : (
         <>
-          {review ? (
-            <View className="mb-3 rounded-button border border-sage-200 p-4 dark:border-sage-800">
-              <Text className="font-nunito-semibold text-xs uppercase tracking-wide text-sage-700 dark:text-sage-300">
-                {t("review.adherence", {
-                  mealsDone: review.meals_done,
-                  mealsTotal: review.meals_total,
-                  exDone: review.exercises_done,
-                  exTotal: review.exercises_total,
-                })}
+          <TextField
+            label={t("review.feelingLabel")}
+            placeholder={t("review.feelingPlaceholder")}
+            value={feeling}
+            onChangeText={setFeeling}
+            multiline
+            numberOfLines={3}
+            maxLength={500}
+          />
+          <View className="mb-3 flex-row items-center justify-between">
+            <View className="mr-3 flex-1">
+              <Text className="font-nunito-semibold text-sm text-ink dark:text-ink-inverse">
+                {t("review.includePhotos")}
               </Text>
-              <Text className="mt-2 font-nunito text-base text-ink dark:text-ink-inverse">
-                {review.summary}
+              <Text className="mt-0.5 font-nunito text-xs text-ink-muted dark:text-ink-invmuted">
+                {t("review.includePhotosHint")}
               </Text>
             </View>
-          ) : null}
-
-          {generating ? (
-            <GeneratingBar messageKeys={GENERATING_MESSAGES} />
-          ) : showForm ? (
-            <>
-              <TextField
-                label={t("review.feelingLabel")}
-                placeholder={t("review.feelingPlaceholder")}
-                value={feeling}
-                onChangeText={setFeeling}
-                multiline
-                numberOfLines={3}
-                maxLength={500}
-              />
-              <View className="mb-3 flex-row items-center justify-between">
-                <View className="mr-3 flex-1">
-                  <Text className="font-nunito-semibold text-sm text-ink dark:text-ink-inverse">
-                    {t("review.includePhotos")}
-                  </Text>
-                  <Text className="mt-0.5 font-nunito text-xs text-ink-muted dark:text-ink-invmuted">
-                    {t("review.includePhotosHint")}
-                  </Text>
-                </View>
-                <Switch value={includePhotos} onValueChange={setIncludePhotos} />
-              </View>
-              <Button
-                title={review ? t("review.update") : t("review.generate")}
-                onPress={handleGenerate}
-              />
-              {review ? (
-                <Button
-                  title={t("review.cancel")}
-                  onPress={() => setEditing(false)}
-                  variant="ghost"
-                />
-              ) : null}
-            </>
-          ) : (
-            <Button
-              title={t("review.redo")}
-              onPress={() => {
-                setFeeling(review?.feeling ?? "");
-                setEditing(true);
-              }}
-              variant="ghost"
-            />
-          )}
-
-          {errorKey ? (
-            <Text className="mt-2 font-nunito text-sm text-terracotta-600 dark:text-terracotta-300">
-              {t(errorKey, { hours: errorHours ?? 0 })}
-            </Text>
-          ) : null}
+            <Switch value={includePhotos} onValueChange={setIncludePhotos} />
+          </View>
+          <Button
+            title={t("review.generate")}
+            onPress={() => generateWeeklyReview(feeling.trim(), includePhotos)}
+          />
         </>
       )}
+
+      {errorKey ? (
+        <Text className="mt-2 font-nunito text-sm text-terracotta-600 dark:text-terracotta-300">
+          {t(errorKey, { hours: errorHours ?? 0 })}
+        </Text>
+      ) : null}
     </View>
   );
 }

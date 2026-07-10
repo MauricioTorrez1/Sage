@@ -1,9 +1,20 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Platform, Pressable, Switch, Text, View } from "react-native";
+import {
+  Platform,
+  Pressable,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 
-import type { ReminderPrefs } from "./store";
-import { setReminderPrefs, useRemindersStore } from "./store";
+import type { MealReminder, ReminderPrefs } from "./store";
+import {
+  newMealReminderId,
+  setReminderPrefs,
+  useRemindersStore,
+} from "./store";
 
 type RowProps = {
   label: string;
@@ -136,6 +147,94 @@ function ReminderRow({
   );
 }
 
+function MealReminderRow({
+  meal,
+  onChange,
+  onRemove,
+}: {
+  meal: MealReminder;
+  onChange: (partial: Partial<MealReminder>) => void;
+  onRemove: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <View className="rounded-button border border-sage-200 bg-white px-4 py-3.5 dark:border-sage-800 dark:bg-nightSurface">
+      <View className="flex-row items-center justify-between">
+        <TextInput
+          className="mr-3 flex-1 font-nunito-bold text-base text-ink dark:text-ink-inverse"
+          placeholder={t("reminders.mealLabelPlaceholder")}
+          value={meal.label}
+          onChangeText={(label) => onChange({ label })}
+          maxLength={30}
+        />
+        <Switch
+          value={meal.enabled}
+          onValueChange={(enabled) => onChange({ enabled })}
+        />
+      </View>
+      {meal.enabled ? (
+        <TimePicker
+          hour={meal.hour}
+          minute={meal.minute}
+          onHourChange={(hour) => onChange({ hour })}
+          onMinuteChange={(minute) => onChange({ minute })}
+        />
+      ) : null}
+      <Pressable
+        accessibilityRole="button"
+        onPress={onRemove}
+        className="mt-2 self-start"
+        style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+      >
+        <Text className="font-nunito-semibold text-sm text-terracotta-600 dark:text-terracotta-300">
+          {t("reminders.mealRemove")}
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
+
+/** expo WEEKLY weekday: 1=Sunday … 7=Saturday; index = weekday - 1. */
+const WEEKDAY_SHORT = ["D", "L", "M", "M", "J", "V", "S"];
+
+function WeekdayPicker({
+  weekday,
+  onChange,
+}: {
+  weekday: number;
+  onChange: (weekday: number) => void;
+}) {
+  return (
+    <View className="mt-3 flex-row justify-center gap-1.5">
+      {WEEKDAY_SHORT.map((short, index) => {
+        const value = index + 1;
+        const active = value === weekday;
+        return (
+          <Pressable
+            key={value}
+            accessibilityRole="button"
+            onPress={() => onChange(value)}
+            className={`h-9 w-9 items-center justify-center rounded-full ${
+              active ? "bg-sage-500" : "bg-sage-100 dark:bg-sage-800"
+            }`}
+            style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+          >
+            <Text
+              className={`font-nunito-bold text-sm ${
+                active
+                  ? "text-white"
+                  : "text-sage-800 dark:text-sage-100"
+              }`}
+            >
+              {short}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 /** Device-local daily reminders; hidden on web (no local notifications). */
 export function RemindersCard() {
   const { t } = useTranslation();
@@ -147,6 +246,35 @@ export function RemindersCard() {
   async function update(partial: Partial<ReminderPrefs>) {
     const ok = await setReminderPrefs(partial);
     setDenied(!ok);
+  }
+
+  function addMeal() {
+    update({
+      mealReminders: [
+        ...prefs.mealReminders,
+        {
+          id: newMealReminderId(),
+          label: "",
+          hour: 9,
+          minute: 0,
+          enabled: true,
+        },
+      ],
+    });
+  }
+
+  function changeMeal(id: string, partial: Partial<MealReminder>) {
+    update({
+      mealReminders: prefs.mealReminders.map((meal) =>
+        meal.id === id ? { ...meal, ...partial } : meal,
+      ),
+    });
+  }
+
+  function removeMeal(id: string) {
+    update({
+      mealReminders: prefs.mealReminders.filter((meal) => meal.id !== id),
+    });
   }
 
   return (
@@ -179,6 +307,73 @@ export function RemindersCard() {
           onMinuteChange={(eveningMinute) => update({ eveningMinute })}
         />
       </View>
+
+      <Text className="mb-2 mt-4 font-nunito-semibold text-sm text-ink dark:text-ink-inverse">
+        {t("reminders.mealsTitle")}
+      </Text>
+      <View className="gap-2">
+        {prefs.mealReminders.map((meal) => (
+          <MealReminderRow
+            key={meal.id}
+            meal={meal}
+            onChange={(partial) => changeMeal(meal.id, partial)}
+            onRemove={() => removeMeal(meal.id)}
+          />
+        ))}
+        <Pressable
+          accessibilityRole="button"
+          onPress={addMeal}
+          className="items-center rounded-button border border-dashed border-sage-300 py-3 dark:border-sage-700"
+          style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+        >
+          <Text className="font-nunito-semibold text-sm text-sage-700 dark:text-sage-200">
+            {t("reminders.mealAdd")}
+          </Text>
+        </Pressable>
+      </View>
+
+      <Text className="mb-2 mt-4 font-nunito-semibold text-sm text-ink dark:text-ink-inverse">
+        {t("reminders.photoSectionTitle")}
+      </Text>
+      <View className="rounded-button border border-sage-200 bg-white px-4 py-3.5 dark:border-sage-800 dark:bg-nightSurface">
+        <View className="flex-row items-center justify-between">
+          <View className="mr-3 flex-1">
+            <Text className="font-nunito-bold text-base text-ink dark:text-ink-inverse">
+              {t("reminders.photoLabel")}
+            </Text>
+            <Text className="mt-0.5 font-nunito text-sm text-ink-muted dark:text-ink-invmuted">
+              {t("reminders.photoHint")}
+            </Text>
+          </View>
+          <Switch
+            value={prefs.weeklyPhoto.enabled}
+            onValueChange={(enabled) =>
+              update({ weeklyPhoto: { ...prefs.weeklyPhoto, enabled } })
+            }
+          />
+        </View>
+        {prefs.weeklyPhoto.enabled ? (
+          <>
+            <WeekdayPicker
+              weekday={prefs.weeklyPhoto.weekday}
+              onChange={(weekday) =>
+                update({ weeklyPhoto: { ...prefs.weeklyPhoto, weekday } })
+              }
+            />
+            <TimePicker
+              hour={prefs.weeklyPhoto.hour}
+              minute={prefs.weeklyPhoto.minute}
+              onHourChange={(hour) =>
+                update({ weeklyPhoto: { ...prefs.weeklyPhoto, hour } })
+              }
+              onMinuteChange={(minute) =>
+                update({ weeklyPhoto: { ...prefs.weeklyPhoto, minute } })
+              }
+            />
+          </>
+        ) : null}
+      </View>
+
       {denied ? (
         <Text className="mt-1.5 font-nunito text-sm text-terracotta-600 dark:text-terracotta-300">
           {t("reminders.permissionDenied")}

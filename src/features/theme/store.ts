@@ -1,38 +1,42 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { colorScheme } from "nativewind";
-import { create } from "zustand";
+import { AppState } from "react-native";
 
-/** "system" follows the device; the app also honors a manual override. */
-export type ThemePreference = "system" | "light" | "dark";
+/**
+ * The theme follows the local clock: light from 09:00 to 16:20, dark the rest
+ * of the day. There is no manual override — the app decides from the hour.
+ */
+const LIGHT_START_MIN = 9 * 60; // 09:00
+const LIGHT_END_MIN = 16 * 60 + 20; // 16:20
 
-const STORAGE_KEY = "sage.theme";
+/** "light" during the day window, "dark" otherwise. */
+export function computeAutoTheme(now: Date = new Date()): "light" | "dark" {
+  const minutes = now.getHours() * 60 + now.getMinutes();
+  return minutes >= LIGHT_START_MIN && minutes < LIGHT_END_MIN
+    ? "light"
+    : "dark";
+}
 
-export const useThemeStore = create<{ preference: ThemePreference }>(() => ({
-  preference: "system",
-}));
-
-function applyTheme(preference: ThemePreference) {
-  colorScheme.set(preference);
-  useThemeStore.setState({ preference });
+function applyAutoTheme() {
+  colorScheme.set(computeAutoTheme());
 }
 
 /**
- * Restores the saved preference. Call from an effect after mount — never at
- * module scope, where the static web export would touch window/AsyncStorage.
+ * Drives the theme from the local clock. Call once from the root layout after
+ * mount (never at module scope — the static web export would touch native
+ * modules). Re-checks every minute so the 16:20 flip happens while the app is
+ * open, and again whenever the app returns to the foreground. Returns a
+ * cleanup that removes the timer and listener.
  */
-export async function loadThemePreference() {
-  try {
-    const saved = await AsyncStorage.getItem(STORAGE_KEY);
-    if (saved === "light" || saved === "dark" || saved === "system") {
-      applyTheme(saved);
-    }
-  } catch {
-    // Unreadable storage: stay on "system".
-  }
-}
+export function startAutoTheme(): () => void {
+  applyAutoTheme();
 
-/** Applies the preference immediately and persists it for the next launch. */
-export function setThemePreference(preference: ThemePreference) {
-  applyTheme(preference);
-  AsyncStorage.setItem(STORAGE_KEY, preference).catch(() => {});
+  const interval = setInterval(applyAutoTheme, 60 * 1000);
+  const subscription = AppState.addEventListener("change", (state) => {
+    if (state === "active") applyAutoTheme();
+  });
+
+  return () => {
+    clearInterval(interval);
+    subscription.remove();
+  };
 }

@@ -85,7 +85,7 @@ export async function generateShoppingList() {
       generating: false,
       errorKey:
         info?.code === "limit"
-          ? "coach.errors.limit"
+          ? "coach.errors.limitWeek"
           : info?.status === 429
             ? "coach.errors.busy"
             : "food.errors.generate",

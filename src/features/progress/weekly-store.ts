@@ -34,6 +34,17 @@ export const useWeeklyReviewStore = create<WeeklyReviewState>(() => ({
   errorHours: null,
 }));
 
+/**
+ * Sunday (YYYY-MM-DD) that starts the current local week. The check-in
+ * generation limit (2/week) is keyed on this, so it resets every Sunday —
+ * distinct from the Monday-based weekStartKey used for the review row itself.
+ */
+function sundayWeekKey() {
+  const date = new Date();
+  date.setDate(date.getDate() - date.getDay()); // getDay: 0 = Sunday
+  return date.toLocaleDateString("en-CA");
+}
+
 /** Fetches this week's check-in if any. Safe to call repeatedly. */
 export async function loadWeeklyReview() {
   const { data, error } = await supabase
@@ -71,6 +82,7 @@ export async function generateWeeklyReview(
         week_start: weekStartKey(),
         feeling,
         include_photos: includePhotos,
+        limit_key: sundayWeekKey(),
       },
     });
 
@@ -87,9 +99,11 @@ export async function generateWeeklyReview(
     useWeeklyReviewStore.setState({
       generating: false,
       errorKey:
-        info?.status === 429
-          ? "coach.errors.busy"
-          : "review.errors.generate",
+        info?.code === "limit"
+          ? "coach.errors.limitCheckin"
+          : info?.status === 429
+            ? "coach.errors.busy"
+            : "review.errors.generate",
       errorHours: info?.hoursLeft,
     });
     return;

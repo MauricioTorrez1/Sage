@@ -31,8 +31,9 @@ const PLAN_MAX_TOKENS = 6000;
 // Hard limits so a runaway client can't rack up spend.
 const MAX_MESSAGES = 30;
 const MAX_MESSAGE_CHARS = 2000;
-// Each generation kind is capped per rolling 24h window, on SERVER time —
-// the device clock is irrelevant, so changing the phone's hour won't help.
+// food_photo is capped per rolling 24h window on SERVER time (changing the
+// phone's clock won't help). daily_plan and shopping_list instead use one
+// generation per local calendar period (see periodAlreadyGenerated).
 const DAILY_GENERATION_LIMIT = 3;
 const LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -313,24 +314,37 @@ function dailyPlanSystemPrompt(
   profile: Profile,
   kept: DailyPlanItem[],
   recentMeals: string[],
+  recentExercises: string[],
+  progressNote: string,
 ) {
   let prompt =
     `Eres Sage, coach de nutrición y entrenamiento. Genera el plan de HOY para esta persona, en español mexicano.
 
 Perfil:
 ${profileFacts(profile)}
+${progressNote}
 
-Reglas:
+Reglas de nutrición:
 - Respeta SIEMPRE las alergias y restricciones de sus notas de comida: jamás incluyas un alimento que las viole. Ajusta también a sus gustos.
 - Si indicó presupuesto semanal, las comidas del día deben caber en ~1/7 de ese presupuesto.
 - Si toma suplementos, intégralos al plan donde tengan sentido (p. ej. batido de proteína post-entreno, creatina con una comida) contando sus kcal; no recomiendes suplementos nuevos.
 - 3 o 4 comidas cuyas kcal sumen aproximadamente su objetivo diario (±5%), con buena proteína según su meta.
 - Comida real, accesible y común en México; nada rebuscado ni caro.
+- ORDEN: coloca las comidas en el arreglo "meals" en el ORDEN en que se comen a lo largo del día (desayuno primero, luego media mañana/comida, y al final la cena). El primer elemento debe ser la primera comida del día.
+- PORCIONES EN GRAMOS/ML: en "detail" especifica cada porción SIEMPRE en gramos (g) o mililitros (ml). JAMÁS uses "taza", "media taza", "puño", "cucharada" ni medidas caseras vagas.
+- COCIDO vs CRUDO: cuando el estado de cocción cambie el conteo (avena, arroz, pasta, frijol, carne, verduras), aclara si el gramaje es en crudo o ya cocido (p. ej. "avena 80 g en crudo", "arroz 150 g ya cocido", "pechuga 150 g cruda").
+
+Reglas de entrenamiento:
 - 2 a 4 ejercicios/actividades realistas para su nivel; el entrenamiento completo debe caber en sus minutos disponibles y hacerse en su lugar de entrenamiento (si entrena en casa, sin máquinas de gimnasio).
+- ORDEN DE EJECUCIÓN: el arreglo "exercises" va en el ORDEN en que se realizan. El PRIMER elemento SIEMPRE es un "Calentamiento" (movilidad/activación acorde al entreno de hoy, dentro de sus minutos); luego los ejercicios principales; opcionalmente un enfriamiento/estiramiento al final.
 - Usa SOLO el equipo disponible del perfil (los ejercicios de peso corporal siempre valen); si no indicó equipo, asume lo típico de su lugar de entrenamiento.
 - Nombra cada ejercicio con su nombre común y estándar en español, mencionando el equipo en el título cuando aplique (p. ej. "Sentadilla goblet", "Zancadas con mancuernas", "Remo con liga", "Plancha").
+- PESOS EN KG: cuando el ejercicio use mancuernas, barra, disco o pesa rusa, indica en "detail" un peso concreto EN KILOS sugerido según su sexo, tipo de cuerpo, nivel y equipo (p. ej. "3 series x 10 con 12 kg por mancuerna"), aclarando que es un punto de partida a ajustar. Peso corporal o ligas: sin kg.
 - Cada ejercicio va como elemento SEPARADO del arreglo "exercises" — un solo ejercicio por elemento, con sus propias series/repeticiones en su "detail". JAMÁS agrupes la rutina completa (ni dos ejercicios) en un mismo elemento.
 - Respeta SIEMPRE sus lesiones o limitaciones físicas: jamás incluyas ejercicios contraindicados; usa alternativas seguras que no carguen la zona afectada.
+
+Reglas generales:
+- PROGRESIVO: usa las señales de progreso de arriba. Si viene entrenando con constancia, aplica sobrecarga gradual (un poco más de peso, reps o series que días previos) y ajusta las calorías según su avance real hacia la meta; si va empezando o su adherencia es baja, mantén cargas conservadoras y sostenibles.
 - "title" corto (máx 6 palabras); "detail" con porciones o series/repeticiones concretas, en una línea.
 - Nunca planes extremos: nada de ayunos agresivos ni ejercicio excesivo.`;
 
@@ -339,6 +353,13 @@ Reglas:
 
 Platillos de sus días recientes (NO los repitas hoy; varía proteínas, guarniciones y estilo de cocina respecto a esta lista):
 ${recentMeals.map((title) => `- ${title}`).join("\n")}`;
+  }
+
+  if (recentExercises.length > 0) {
+    prompt += `
+
+Ejercicios de sus días recientes (varía respecto a esta lista para trabajar distintos patrones y grupos musculares durante la semana; repite lo mínimo posible):
+${recentExercises.map((title) => `- ${title}`).join("\n")}`;
   }
 
   if (kept.length > 0) {
@@ -402,7 +423,7 @@ Reglas:
 - Si lo que ya comió alcanza o supera su objetivo del día, devuelve meals como arreglo vacío (no fuerces más comida).
 - Prioriza buena proteína según su meta y comida real, accesible y común en México.
 - No repitas el estilo ni la proteína principal de lo que ya comió; que lo nuevo complemente, no duplique.
-- "title" corto (máx 6 palabras); "detail" con porciones concretas en una línea; "kcal" entero por comida.
+- "title" corto (máx 6 palabras); "detail" con porciones concretas EN GRAMOS (g) O MILILITROS (ml) —nunca tazas ni medidas caseras— y aclara cocido vs crudo cuando cambie el conteo (p. ej. "arroz 150 g ya cocido"); "kcal" entero por comida.
 - Nunca planes extremos ni mensajes con culpa.`;
 
   if (recentMeals.length > 0) {
@@ -585,7 +606,11 @@ function extractText(response: Anthropic.Message) {
     .join("");
 }
 
-type GenerationKind = "daily_plan" | "shopping_list" | "food_photo";
+type GenerationKind =
+  | "daily_plan"
+  | "shopping_list"
+  | "food_photo"
+  | "weekly_review";
 
 /**
  * Hours until the user may generate `kind` again, or null if still allowed.
@@ -611,14 +636,43 @@ async function generationHoursLeft(
   );
 }
 
+// Per-period generation caps, gated on the client's local date rather than a
+// rolling server-clock window. daily_plan = initial build + one free
+// regeneration; shopping_list = one per week.
+const DAILY_PLAN_PER_DAY = 2;
+const SHOPPING_PER_WEEK = 1;
+// Check-in: once per week, resetting Sunday (period = Sunday key).
+const WEEKLY_REVIEW_PER_WEEK = 1;
+
+/**
+ * Whether the user has hit the per-period cap for `kind`. Used by daily_plan
+ * (period = local date) and shopping_list (period = week's Monday). RLS scopes
+ * the read to the caller.
+ */
+async function periodLimitReached(
+  supabase: SupabaseClient,
+  kind: GenerationKind,
+  periodKey: string,
+  max: number,
+) {
+  const { data } = await supabase
+    .from("ai_generations")
+    .select("id")
+    .eq("kind", kind)
+    .eq("period_key", periodKey)
+    .limit(max);
+  return (data?.length ?? 0) >= max;
+}
+
 async function recordGeneration(
   supabase: SupabaseClient,
   userId: string,
   kind: GenerationKind,
+  periodKey?: string,
 ) {
   const { error } = await supabase
     .from("ai_generations")
-    .insert({ user_id: userId, kind });
+    .insert({ user_id: userId, kind, period_key: periodKey ?? null });
   if (error) console.error("generation record error:", error);
 }
 
@@ -793,9 +847,10 @@ async function handleDailyPlan(
     return json({ error: "bad_request" }, 400);
   }
 
-  const hoursLeft = await generationHoursLeft(supabase, "daily_plan");
-  if (hoursLeft !== null) {
-    return json({ error: "limit", hours_left: hoursLeft }, 429);
+  // Initial build + one free regeneration per local day; a third is blocked
+  // until tomorrow (the client sends its local date).
+  if (await periodLimitReached(supabase, "daily_plan", date, DAILY_PLAN_PER_DAY)) {
+    return json({ error: "limit", period: "day" }, 429);
   }
 
   // Completed items survive regeneration: only the unchecked part of the
@@ -809,15 +864,22 @@ async function handleDailyPlan(
     (item) => item.done,
   );
 
-  // Meal titles from the last week feed the prompt so days don't repeat
-  // the same dishes (RLS scopes the read to the caller's own rows).
-  const recentMeals = await recentMealTitles(supabase, date);
+  // Recent meals/exercises + progress signals feed the prompt so days don't
+  // repeat and the plan gets progressively harder (RLS scopes reads to caller).
+  const ctx = await dailyPlanContext(supabase, date);
+  const progressNote = buildProgressNote(ctx);
 
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: PLAN_MAX_TOKENS,
     thinking: THINKING,
-    system: dailyPlanSystemPrompt(profile, kept, recentMeals),
+    system: dailyPlanSystemPrompt(
+      profile,
+      kept,
+      ctx.recentMeals,
+      ctx.recentExercises,
+      progressNote,
+    ),
     messages: [{ role: "user", content: `Genera mi plan del día ${date}.` }],
     output_config: {
       format: { type: "json_schema", schema: DAILY_PLAN_SCHEMA },
@@ -838,6 +900,17 @@ async function handleDailyPlan(
     meals: { title: string; detail: string; kcal: number }[];
     exercises: { title: string; detail: string }[];
   };
+
+  // Fine-tune kcal: nudge the newly generated meals so the whole day lands on
+  // the calculated target. Kept (already-eaten) meals are fixed, so we only
+  // scale the fresh ones to fill whatever calories remain.
+  const target = calculatePlan(profile)?.calories ?? null;
+  if (target !== null) {
+    const keptMealKcal = kept
+      .filter((item) => item.kind === "meal")
+      .reduce((sum, item) => sum + (item.kcal ?? 0), 0);
+    generated.meals = adjustMealKcal(generated.meals, target - keptMealKcal);
+  }
 
   const items = [
     ...kept.filter((item) => item.kind === "meal"),
@@ -873,7 +946,7 @@ async function handleDailyPlan(
     return json({ error: "internal" }, 500);
   }
 
-  await recordGeneration(supabase, userId, "daily_plan");
+  await recordGeneration(supabase, userId, "daily_plan", date);
   return json({ plan });
 }
 
@@ -1001,6 +1074,141 @@ async function recentMealTitles(
       ),
     ),
   ];
+}
+
+type DailyContext = {
+  recentMeals: string[];
+  recentExercises: string[];
+  /** 0-100 adherence over the last week's plans, or null with no history. */
+  adherencePct: number | null;
+  /** Human-readable weight trend from progress photos, or null. */
+  weightNote: string | null;
+};
+
+const WARMUP_TITLE_RE = /calentamiento|enfriamiento|movilidad|estiramiento/i;
+
+/**
+ * One pass over recent plans + progress photos to feed the daily prompt:
+ * meals and exercises to vary against, recent adherence, and a weight trend.
+ * RLS scopes every read to the caller.
+ */
+async function dailyPlanContext(
+  supabase: SupabaseClient,
+  date: string,
+): Promise<DailyContext> {
+  const { data: recentPlans } = await supabase
+    .from("daily_plans")
+    .select("items")
+    .lt("plan_date", date)
+    .order("plan_date", { ascending: false })
+    .limit(7);
+  const plans = (recentPlans ?? []) as { items: DailyPlanItem[] }[];
+
+  const recentMeals = [
+    ...new Set(
+      plans.flatMap((row) =>
+        (row.items ?? [])
+          .filter((item) => item.kind === "meal")
+          .map((item) => item.title),
+      ),
+    ),
+  ];
+  const recentExercises = [
+    ...new Set(
+      plans.flatMap((row) =>
+        (row.items ?? [])
+          .filter(
+            (item) =>
+              item.kind === "exercise" && !WARMUP_TITLE_RE.test(item.title),
+          )
+          .map((item) => item.title),
+      ),
+    ),
+  ];
+
+  let done = 0;
+  let total = 0;
+  for (const row of plans) {
+    for (const item of row.items ?? []) {
+      total++;
+      if (item.done) done++;
+    }
+  }
+  const adherencePct = total > 0 ? Math.round((done / total) * 100) : null;
+
+  // Weight trend from progress photos (earliest recorded weight vs latest).
+  const { data: photos } = await supabase
+    .from("progress_photos")
+    .select("weight_kg, created_at")
+    .not("weight_kg", "is", null)
+    .order("created_at", { ascending: true });
+  let weightNote: string | null = null;
+  const rows = (photos ?? []) as { weight_kg: number; created_at: string }[];
+  if (rows.length >= 2) {
+    const first = rows[0].weight_kg;
+    const last = rows[rows.length - 1].weight_kg;
+    const days = Math.max(
+      1,
+      Math.round(
+        (Date.now() - new Date(rows[0].created_at).getTime()) / 86_400_000,
+      ),
+    );
+    const delta = Math.round((last - first) * 10) / 10;
+    weightNote = `pasó de ${first} kg a ${last} kg en ~${days} días (${
+      delta > 0 ? "+" : ""
+    }${delta} kg)`;
+  } else if (rows.length === 1) {
+    weightNote = `peso registrado: ${rows[0].weight_kg} kg (aún sin tendencia)`;
+  }
+
+  return { recentMeals, recentExercises, adherencePct, weightNote };
+}
+
+/** Progress-signal block appended to the daily-plan prompt (empty if none). */
+function buildProgressNote(ctx: DailyContext): string {
+  const lines: string[] = [];
+  if (ctx.adherencePct !== null) {
+    lines.push(`- Adherencia reciente: ${ctx.adherencePct}% de los ítems completados en sus últimos planes.`);
+  }
+  if (ctx.weightNote) {
+    lines.push(`- Tendencia de peso: ${ctx.weightNote}.`);
+  }
+  if (lines.length === 0) return "";
+  return `\nSeñales de progreso (úsalas para progresar el plan):\n${lines.join("\n")}`;
+}
+
+/**
+ * Scales the newly generated meals so their kcal sum lands on the remaining
+ * daily target. Ignores small drift (<3%) and refuses absurd scaling (a bad
+ * model total shouldn't halve or double every portion). Absorbs the rounding
+ * remainder into the largest meal so the sum is exact.
+ */
+function adjustMealKcal(
+  meals: { title: string; detail: string; kcal: number }[],
+  targetRemaining: number,
+): { title: string; detail: string; kcal: number }[] {
+  if (meals.length === 0 || targetRemaining <= 0) return meals;
+  const sum = meals.reduce((acc, meal) => acc + (meal.kcal || 0), 0);
+  if (sum <= 0) return meals;
+
+  const factor = targetRemaining / sum;
+  if (Math.abs(factor - 1) < 0.03 || factor < 0.5 || factor > 2) return meals;
+
+  const scaled = meals.map((meal) => ({
+    ...meal,
+    kcal: Math.max(1, Math.round(meal.kcal * factor)),
+  }));
+
+  const scaledSum = scaled.reduce((acc, meal) => acc + meal.kcal, 0);
+  const diff = targetRemaining - scaledSum;
+  if (diff !== 0) {
+    let idx = 0;
+    for (let i = 1; i < scaled.length; i++) {
+      if (scaled[i].kcal > scaled[idx].kcal) idx = i;
+    }
+    scaled[idx] = { ...scaled[idx], kcal: Math.max(1, scaled[idx].kcal + diff) };
+  }
+  return scaled;
 }
 
 /**
@@ -1156,9 +1364,12 @@ async function handleShoppingList(
     return json({ error: "bad_request" }, 400);
   }
 
-  const hoursLeft = await generationHoursLeft(supabase, "shopping_list");
-  if (hoursLeft !== null) {
-    return json({ error: "limit", hours_left: hoursLeft }, 429);
+  // One shopping list per week; blocked until next Monday (weekStart is the
+  // Monday key the client computes locally).
+  if (
+    await periodLimitReached(supabase, "shopping_list", weekStart, SHOPPING_PER_WEEK)
+  ) {
+    return json({ error: "limit", period: "week" }, 429);
   }
 
   // Regenerating rebuilds only the not-yet-checked AI items. Checked items
@@ -1246,7 +1457,7 @@ async function handleShoppingList(
     return json({ error: "internal" }, 500);
   }
 
-  await recordGeneration(supabase, userId, "shopping_list");
+  await recordGeneration(supabase, userId, "shopping_list", weekStart);
   return json({ list });
 }
 
@@ -1356,6 +1567,161 @@ async function handlePhotoAnalysis(
   return json({ analysis });
 }
 
+const GOAL_VISION_SCHEMA = {
+  type: "object",
+  properties: {
+    assessment: { type: "string" },
+    short: { type: "string" },
+    mid: { type: "string" },
+    long: { type: "string" },
+  },
+  required: ["assessment", "short", "mid", "long"],
+  additionalProperties: false,
+} as const;
+
+function goalVisionSystemPrompt(profile: Profile) {
+  return `Eres Sage 🌿, coach de nutrición y entrenamiento. La persona te comparte una foto de CÓMO QUIERE VERSE (su meta) y, si existe, una foto de su estado ACTUAL. Evalúa con realismo y calidez, en español mexicano.
+
+Perfil:
+${profileFacts(profile)}
+
+Devuelve JSON con estos campos (todos texto plano, sin markdown):
+- "assessment": 3 a 5 oraciones. Valora con honestidad y cariño qué tan alcanzable es esa meta desde su punto actual, considerando su estatura, peso, tipo de cuerpo y meta. Sé realista sobre los TIEMPOS. Deja MUY claro, con calidez, que todo el peso del progreso recae en SU constancia diaria: Sage guía, pero el resultado depende de que la persona cumpla su plan día con día. Nada de garantías ni promesas.
+- "short": plan de CORTO plazo (próximas 2-6 semanas): hábitos y enfoque concreto para empezar.
+- "mid": plan de MEDIANO plazo (2-4 meses): qué progresar y cómo medir el avance.
+- "long": plan de LARGO plazo (6+ meses): el camino sostenible hacia esa meta.
+
+Reglas:
+- GUARDARRAÍLES de imagen corporal: no juzgues su cuerpo con "bien/mal", no compares con ideales dañinos, no des porcentajes de grasa exactos ni diagnósticos médicos.
+- Si la meta parece poco saludable o poco realista, redirígela con cariño hacia una versión sana y sostenible.
+- Enfócate en hábitos, fuerza, energía y constancia, no en apariencia superficial.
+- Si notas señales de una relación dañina con la comida o el cuerpo, prioriza su bienestar y sugiere apoyo profesional.`;
+}
+
+/**
+ * Evaluates the user's optional "goal look" photo against their profile (and
+ * current-state photo if any) and writes a realistic assessment plus a
+ * short/mid/long-term plan back onto their single goal_vision row. No quota:
+ * like photo_analysis, it can be re-run as the goal evolves.
+ */
+async function handleGoalVision(
+  supabase: SupabaseClient,
+  anthropic: Anthropic,
+  profile: Profile,
+) {
+  // RLS scopes this to the caller; unique(user_id) means at most one row.
+  const { data: goal, error: goalError } = await supabase
+    .from("goal_vision")
+    .select("*")
+    .maybeSingle();
+  if (goalError || !goal) {
+    return json({ error: "goal_not_found" }, 404);
+  }
+
+  const goalUrl = async (path: string, bucket: string) => {
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .createSignedUrl(path, 600);
+    if (error || !data) throw error ?? new Error("sign failed");
+    return data.signedUrl;
+  };
+
+  // Best-effort current-state context: the most recent front progress photo.
+  const { data: current } = await supabase
+    .from("progress_photos")
+    .select("storage_path, pose, created_at, weight_kg")
+    .order("created_at", { ascending: false })
+    .limit(20);
+  const currentPhoto = (current ?? []).find(
+    (p) => ((p.pose ?? "front") as string) === "front",
+  ) ?? null;
+
+  const content: Anthropic.ContentBlockParam[] = [
+    { type: "text", text: "Foto de CÓMO QUIERE VERSE (su meta):" },
+    {
+      type: "image",
+      source: {
+        type: "url",
+        url: await goalUrl(goal.storage_path as string, "goal-photos"),
+      },
+    },
+  ];
+  if (currentPhoto) {
+    content.push(
+      {
+        type: "text",
+        text: `Su estado ACTUAL (foto de progreso de frente${
+          currentPhoto.weight_kg ? `, ${currentPhoto.weight_kg} kg` : ""
+        }):`,
+      },
+      {
+        type: "image",
+        source: {
+          type: "url",
+          url: await goalUrl(
+            currentPhoto.storage_path as string,
+            "progress-photos",
+          ),
+        },
+      },
+    );
+  }
+  content.push({
+    type: "text",
+    text: currentPhoto
+      ? "Evalúa qué tan alcanzable es esta meta desde mi estado actual y arma mi plan por fases."
+      : "Evalúa qué tan alcanzable es esta meta desde mi perfil y arma mi plan por fases.",
+  });
+
+  const response = await anthropic.messages.create({
+    model: MODEL,
+    // Assessment (several sentences) + three phase paragraphs in Spanish run
+    // long; a tight budget truncates the JSON and JSON.parse then throws.
+    max_tokens: 2500,
+    thinking: THINKING,
+    system: goalVisionSystemPrompt(profile),
+    messages: [{ role: "user", content }],
+    output_config: {
+      format: { type: "json_schema", schema: GOAL_VISION_SCHEMA },
+    },
+  });
+
+  if (response.stop_reason === "refusal") {
+    return json({ error: "refused" }, 502);
+  }
+  if (response.stop_reason === "max_tokens") {
+    console.error("goal vision truncated at 2500 tokens");
+    return json({ error: "internal" }, 500);
+  }
+
+  let parsed: {
+    assessment: string;
+    short: string;
+    mid: string;
+    long: string;
+  };
+  try {
+    parsed = JSON.parse(extractText(response));
+  } catch (error) {
+    console.error("goal vision parse error:", error, extractText(response));
+    return json({ error: "internal" }, 500);
+  }
+  const plan = { short: parsed.short, mid: parsed.mid, long: parsed.long };
+
+  const { data: updated, error: updateError } = await supabase
+    .from("goal_vision")
+    .update({ assessment: parsed.assessment, plan })
+    .eq("id", goal.id)
+    .select()
+    .single();
+  if (updateError || !updated) {
+    console.error("goal vision update error:", updateError);
+    return json({ error: "internal" }, 500);
+  }
+
+  return json({ goal: updated });
+}
+
 type WeekAdherence = {
   days: number;
   mealsDone: number;
@@ -1410,10 +1776,28 @@ async function handleWeeklyReview(
   weekStart: unknown,
   feeling: unknown,
   includePhotos: unknown,
+  limitKey: unknown,
 ) {
   if (typeof weekStart !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
     return json({ error: "bad_request" }, 400);
   }
+  // Limit period = the week's Sunday key (client-computed); resets Sunday.
+  // Fall back to weekStart so older app builds without limit_key still work.
+  const period =
+    typeof limitKey === "string" && /^\d{4}-\d{2}-\d{2}$/.test(limitKey)
+      ? limitKey
+      : weekStart;
+  if (
+    await periodLimitReached(
+      supabase,
+      "weekly_review",
+      period,
+      WEEKLY_REVIEW_PER_WEEK,
+    )
+  ) {
+    return json({ error: "limit", period: "checkin" }, 429);
+  }
+
   const feelingText =
     typeof feeling === "string" ? feeling.slice(0, 500).trim() : "";
 
@@ -1540,6 +1924,7 @@ async function handleWeeklyReview(
     return json({ error: "internal" }, 500);
   }
 
+  await recordGeneration(supabase, userId, "weekly_review", period);
   return json({ review });
 }
 
@@ -1648,6 +2033,9 @@ Deno.serve(async (req) => {
         body.photo_id,
       );
     }
+    if (type === "goal_vision") {
+      return await handleGoalVision(supabase, anthropic, profile as Profile);
+    }
     if (type === "weekly_review") {
       return await handleWeeklyReview(
         supabase,
@@ -1657,6 +2045,7 @@ Deno.serve(async (req) => {
         body.week_start,
         body.feeling,
         body.include_photos,
+        body.limit_key,
       );
     }
     return json({ error: "bad_request" }, 400);

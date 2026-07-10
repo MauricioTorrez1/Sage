@@ -12,6 +12,26 @@ import i18n from "@/lib/i18n";
  * restarts and only changes when the user edits it here.
  */
 
+/** A user-defined meal reminder ("Desayuno" at 10:00, etc.). */
+export type MealReminder = {
+  id: string;
+  label: string;
+  /** 0-23, local time. */
+  hour: number;
+  /** 0-59, local time. */
+  minute: number;
+  enabled: boolean;
+};
+
+/** Weekly nudge to upload progress photos. */
+export type WeeklyPhotoReminder = {
+  enabled: boolean;
+  /** expo WEEKLY weekday: 1=Sunday … 7=Saturday. */
+  weekday: number;
+  hour: number;
+  minute: number;
+};
+
 export type ReminderPrefs = {
   morningEnabled: boolean;
   /** 0-23, local time. */
@@ -21,6 +41,9 @@ export type ReminderPrefs = {
   eveningEnabled: boolean;
   eveningHour: number;
   eveningMinute: number;
+  /** Custom meal reminders the user adds/edits. */
+  mealReminders: MealReminder[];
+  weeklyPhoto: WeeklyPhotoReminder;
 };
 
 const STORAGE_KEY = "sage.reminders";
@@ -32,6 +55,13 @@ const DEFAULT_PREFS: ReminderPrefs = {
   eveningEnabled: false,
   eveningHour: 20,
   eveningMinute: 0,
+  mealReminders: [],
+  weeklyPhoto: {
+    enabled: false,
+    weekday: 2, // Monday
+    hour: 9,
+    minute: 0,
+  },
 };
 
 export const useRemindersStore = create<ReminderPrefs>(() => DEFAULT_PREFS);
@@ -56,20 +86,40 @@ export async function initReminders() {
   try {
     const saved = await AsyncStorage.getItem(STORAGE_KEY);
     if (saved) {
-      // Merge over defaults so prefs saved before minutes existed (no
-      // *Minute field) load as :00 instead of NaN.
+      // Merge over defaults so prefs saved before a field existed (e.g. the
+      // *Minute fields, mealReminders, weeklyPhoto) load with sane values
+      // instead of undefined/NaN.
       const parsed = JSON.parse(saved) as Partial<ReminderPrefs>;
-      useRemindersStore.setState({ ...DEFAULT_PREFS, ...parsed });
+      useRemindersStore.setState({
+        ...DEFAULT_PREFS,
+        ...parsed,
+        mealReminders: Array.isArray(parsed.mealReminders)
+          ? parsed.mealReminders
+          : DEFAULT_PREFS.mealReminders,
+        weeklyPhoto: {
+          ...DEFAULT_PREFS.weeklyPhoto,
+          ...(parsed.weeklyPhoto ?? {}),
+        },
+      });
     }
   } catch {
     // Unreadable storage: stay on defaults.
   }
 }
 
+function anyEnabled(prefs: ReminderPrefs): boolean {
+  return (
+    prefs.morningEnabled ||
+    prefs.eveningEnabled ||
+    prefs.weeklyPhoto.enabled ||
+    prefs.mealReminders.some((meal) => meal.enabled)
+  );
+}
+
 async function reschedule(prefs: ReminderPrefs): Promise<boolean> {
   if (Platform.OS === "web") return true;
 
-  if (prefs.morningEnabled || prefs.eveningEnabled) {
+  if (anyEnabled(prefs)) {
     const permission = await Notifications.requestPermissionsAsync();
     if (!permission.granted) return false;
   }
@@ -102,6 +152,36 @@ async function reschedule(prefs: ReminderPrefs): Promise<boolean> {
       },
     });
   }
+  for (const meal of prefs.mealReminders) {
+    if (!meal.enabled) continue;
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: i18n.t("reminders.mealTitle"),
+        body: i18n.t("reminders.mealBody", {
+          label: meal.label || i18n.t("reminders.mealDefaultLabel"),
+        }),
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DAILY,
+        hour: meal.hour,
+        minute: meal.minute,
+      },
+    });
+  }
+  if (prefs.weeklyPhoto.enabled) {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: i18n.t("reminders.photoTitle"),
+        body: i18n.t("reminders.photoBody"),
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
+        weekday: prefs.weeklyPhoto.weekday,
+        hour: prefs.weeklyPhoto.hour,
+        minute: prefs.weeklyPhoto.minute,
+      },
+    });
+  }
   return true;
 }
 
@@ -121,4 +201,9 @@ export async function setReminderPrefs(partial: Partial<ReminderPrefs>) {
   }
   AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(prefs)).catch(() => {});
   return true;
+}
+
+/** Generates an id for a new meal reminder. */
+export function newMealReminderId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }

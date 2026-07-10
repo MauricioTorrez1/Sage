@@ -16,7 +16,7 @@ import { useEffect } from "react";
 import { useAuthDeepLinks } from "@/features/auth/oauth";
 import { startAuthListener, useAuthStore } from "@/features/auth/store";
 import { initReminders } from "@/features/reminders/store";
-import { loadThemePreference } from "@/features/theme/store";
+import { startAutoTheme } from "@/features/theme/store";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -27,8 +27,9 @@ export default function RootLayout() {
   useAuthDeepLinks();
 
   useEffect(() => {
-    loadThemePreference();
+    const stopAutoTheme = startAutoTheme();
     initReminders();
+    return stopAutoTheme;
   }, []);
 
   const [fontsLoaded, fontError] = useFonts({
